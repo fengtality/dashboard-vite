@@ -12,6 +12,7 @@ export interface Candle {
 }
 
 export interface PriceLine {
+  id: string;
   price: number;
   color: string;
   title: string;
@@ -112,7 +113,7 @@ export function CandlestickChart({
     chartRef.current?.timeScale().fitContent();
   }, [candles]);
 
-  // Update price lines using line series for better visibility
+  // Update price lines using line series
   useEffect(() => {
     if (!chartRef.current || candles.length === 0) return;
 
@@ -129,19 +130,18 @@ export function CandlestickChart({
     priceLineSeriesRef.current.clear();
 
     // Get time range from candles
-    if (candles.length === 0) return;
     const startTime = candles[0].timestamp / 1000;
     const endTime = candles[candles.length - 1].timestamp / 1000;
 
-    // Create new line series for each price line
-    priceLines.forEach((line, index) => {
-      if (line.price > 0) {
-        const lineStyleMap: Record<string, number> = {
-          solid: 0,
-          dashed: 2,
-          dotted: 1,
-        };
+    const lineStyleMap: Record<string, number> = {
+      solid: 0,
+      dashed: 2,
+      dotted: 1,
+    };
 
+    // Create new line series for each price line
+    priceLines.forEach((line) => {
+      if (line.price > 0) {
         const lineSeries = chart.addSeries(LineSeries, {
           color: line.color,
           lineWidth: 2,
@@ -149,6 +149,7 @@ export function CandlestickChart({
           priceLineVisible: true,
           lastValueVisible: true,
           title: line.title,
+          crosshairMarkerVisible: false,
         });
 
         // Draw horizontal line across the entire time range
@@ -157,21 +158,20 @@ export function CandlestickChart({
           { time: endTime as Time, value: line.price },
         ]);
 
-        priceLineSeriesRef.current.set(`line-${index}`, lineSeries);
+        priceLineSeriesRef.current.set(line.id, lineSeries);
       }
     });
   }, [priceLines, candles]);
 
-  if (candles.length === 0) {
-    return (
-      <div
-        className="flex items-center justify-center text-muted-foreground text-sm border border-dashed border-border rounded-lg"
-        style={{ height }}
-      >
-        {emptyMessage}
-      </div>
-    );
-  }
-
-  return <div ref={chartContainerRef} style={{ height }} />;
+  return (
+    <div ref={chartContainerRef} style={{ height }}>
+      {candles.length === 0 && (
+        <div
+          className="flex items-center justify-center text-muted-foreground text-sm border border-dashed border-border rounded-lg h-full"
+        >
+          {emptyMessage}
+        </div>
+      )}
+    </div>
+  );
 }

@@ -208,37 +208,34 @@ export default function GridStrikeConfig() {
           close: c.close,
           volume: c.volume,
         }));
-        setCandles(parsedCandles);
+        // Calculate prices from candle data
+        const highestHigh = Math.max(...parsedCandles.map(c => c.high));
+        const lowestLow = Math.min(...parsedCandles.map(c => c.low));
+        const range = highestHigh - lowestLow;
 
-        // Auto-set grid prices around current price
-        if (parsedCandles.length > 0) {
-          const lastCandle = parsedCandles[parsedCandles.length - 1];
-          const currentPrice = lastCandle.close;
-
-          // BUY grid: start 1% below, end 1% above, limit 0.5% below start (1.5% below current)
-          // SELL grid: start 1% above, end 1% below, limit 0.5% above start (1.5% above current)
-          if (formData.side === 'BUY') {
-            const start = (currentPrice * 0.99).toFixed(4);  // 1% below
-            const end = (currentPrice * 1.01).toFixed(4);    // 1% above
-            const limit = (currentPrice * 0.985).toFixed(4); // 1.5% below (0.5% below start)
-            setFormData(prev => ({
-              ...prev,
-              start_price: start,
-              end_price: end,
-              limit_price: limit,
-            }));
-          } else {
-            const start = (currentPrice * 1.01).toFixed(4);  // 1% above
-            const end = (currentPrice * 0.99).toFixed(4);    // 1% below
-            const limit = (currentPrice * 1.015).toFixed(4); // 1.5% above (0.5% above start)
-            setFormData(prev => ({
-              ...prev,
-              start_price: start,
-              end_price: end,
-              limit_price: limit,
-            }));
-          }
+        // BUY (long): start at low, end at high, limit 20% below start
+        // SELL (short): start at high, end at low, limit 20% above start
+        let start: number, end: number, limit: number;
+        if (formData.side === 'BUY') {
+          start = lowestLow;
+          end = highestHigh;
+          limit = start - (range * 0.2);
+        } else {
+          start = highestHigh;
+          end = lowestLow;
+          limit = start + (range * 0.2);
         }
+
+        // Update form data with calculated prices
+        setFormData(prev => ({
+          ...prev,
+          start_price: start.toFixed(4),
+          end_price: end.toFixed(4),
+          limit_price: limit.toFixed(4),
+        }));
+
+        // Set candles after prices are calculated
+        setCandles(parsedCandles);
         toast.success('Chart updated');
       } else {
         toast.error('No candle data returned');
@@ -252,6 +249,42 @@ export default function GridStrikeConfig() {
       setLoadingCandles(false);
     }
   }
+
+  // Auto-fetch candles on load and when connector/pair changes
+  useEffect(() => {
+    if (formData.connector_name && formData.trading_pair && !loadingCandles) {
+      fetchCandles();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.connector_name, formData.trading_pair]);
+
+  // Recalculate prices when side changes
+  useEffect(() => {
+    if (candles.length === 0) return;
+
+    const highestHigh = Math.max(...candles.map(c => c.high));
+    const lowestLow = Math.min(...candles.map(c => c.low));
+    const range = highestHigh - lowestLow;
+
+    let start: number, end: number, limit: number;
+    if (formData.side === 'BUY') {
+      start = lowestLow;
+      end = highestHigh;
+      limit = start - (range * 0.2);
+    } else {
+      start = highestHigh;
+      end = lowestLow;
+      limit = start + (range * 0.2);
+    }
+
+    setFormData(prev => ({
+      ...prev,
+      start_price: start.toFixed(4),
+      end_price: end.toFixed(4),
+      limit_price: limit.toFixed(4),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.side]);
 
   // Load a specific config for editing
   async function loadConfigForEditing(configId: string) {
@@ -805,7 +838,12 @@ export default function GridStrikeConfig() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle className="text-lg">{formData.trading_pair || 'Select Pair'}</CardTitle>
+                <div className="flex items-center gap-2">
+                  <CardTitle className="text-lg">{formData.trading_pair || 'Select Pair'}</CardTitle>
+                  <Badge variant="outline">
+                    {formData.side === 'BUY' ? 'Long' : 'Short'}
+                  </Badge>
+                </div>
                 <CardDescription>
                   {formData.connector_name || 'Select connector'}
                 </CardDescription>
@@ -828,10 +866,11 @@ export default function GridStrikeConfig() {
           <CardContent>
             <CandlestickChart
               candles={candles}
+              height={400}
               priceLines={[
-                { price: parseFloat(formData.start_price) || 0, color: '#22c55e', title: 'Start', lineStyle: 'dashed' as const },
-                { price: parseFloat(formData.end_price) || 0, color: '#3b82f6', title: 'End', lineStyle: 'dashed' as const },
-                { price: parseFloat(formData.limit_price) || 0, color: '#ef4444', title: 'Limit', lineStyle: 'solid' as const },
+                { id: 'start', price: parseFloat(formData.start_price) || 0, color: '#22c55e', title: 'Start', lineStyle: 'dashed' as const },
+                { id: 'end', price: parseFloat(formData.end_price) || 0, color: '#3b82f6', title: 'End', lineStyle: 'dashed' as const },
+                { id: 'limit', price: parseFloat(formData.limit_price) || 0, color: '#ef4444', title: 'Limit', lineStyle: 'solid' as const },
               ].filter(l => l.price > 0)}
             />
           </CardContent>

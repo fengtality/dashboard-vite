@@ -20,6 +20,24 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 type DeploymentType = 'v2-controllers' | 'script';
 
+// Generate random bot name: color + noun
+const colors = [
+  'red', 'blue', 'green', 'gold', 'silver', 'purple', 'orange', 'teal', 'coral', 'amber',
+  'crimson', 'azure', 'emerald', 'ruby', 'jade', 'violet', 'indigo', 'scarlet', 'cobalt', 'bronze',
+  'ivory', 'onyx', 'pearl', 'copper', 'steel', 'frost', 'slate', 'sage', 'rose', 'plum',
+];
+const nouns = [
+  'eagle', 'falcon', 'hawk', 'sparrow', 'robin', 'owl', 'raven', 'phoenix', 'heron', 'finch',
+  'cardinal', 'jay', 'dove', 'swan', 'crane', 'pelican', 'condor', 'osprey', 'kite', 'vulture',
+  'parrot', 'macaw', 'toucan', 'kingfisher', 'woodpecker', 'hummingbird', 'nightingale', 'lark', 'wren', 'thrush',
+  'albatross', 'puffin', 'penguin', 'flamingo', 'stork', 'ibis', 'egret', 'oriole', 'tanager', 'warbler',
+];
+function generateRandomBotName(): string {
+  const color = colors[Math.floor(Math.random() * colors.length)];
+  const noun = nouns[Math.floor(Math.random() * nouns.length)];
+  return `${color}_${noun}`;
+}
+
 export default function DeployBot() {
   const { account } = useAccount();
   const [deploymentType, setDeploymentType] = useState<DeploymentType>('v2-controllers');
@@ -37,7 +55,7 @@ export default function DeployBot() {
   // Common state
   const [images, setImages] = useState<string[]>([]);
   const [selectedImage, setSelectedImage] = useState<string>('');
-  const [botName, setBotName] = useState<string>('');
+  const [botName, setBotName] = useState<string>(generateRandomBotName());
   const [loading, setLoading] = useState(true);
   const [deploying, setDeploying] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -123,7 +141,7 @@ export default function DeployBot() {
         });
       }
       toast.success(`Bot "${botName}" deployed successfully!`);
-      setBotName('');
+      setBotName(generateRandomBotName());
       setSelectedControllerConfigs([]);
       setSelectedScriptConfig('');
     } catch (err) {

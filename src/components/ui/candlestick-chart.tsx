@@ -17,6 +17,7 @@ export interface PriceLine {
   color: string;
   title: string;
   lineStyle?: 'solid' | 'dashed' | 'dotted';
+  draggable?: boolean;
 }
 
 interface CandlestickChartProps {
@@ -24,6 +25,7 @@ interface CandlestickChartProps {
   priceLines?: PriceLine[];
   height?: number;
   emptyMessage?: string;
+  onPriceLineChange?: (id: string, newPrice: number) => void;
 }
 
 export function CandlestickChart({
@@ -31,11 +33,26 @@ export function CandlestickChart({
   priceLines = [],
   height = 300,
   emptyMessage = 'No candle data available',
+  onPriceLineChange,
 }: CandlestickChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const priceLineSeriesRef = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
+
+  // Refs for drag state to avoid stale closures
+  const dragStateRef = useRef<{ id: string; startPrice: number } | null>(null);
+  const priceLinesRef = useRef(priceLines);
+  const onPriceLineChangeRef = useRef(onPriceLineChange);
+
+  // Keep refs in sync
+  useEffect(() => {
+    priceLinesRef.current = priceLines;
+  }, [priceLines]);
+
+  useEffect(() => {
+    onPriceLineChangeRef.current = onPriceLineChange;
+  }, [onPriceLineChange]);
 
   // Initialize chart once
   useEffect(() => {
@@ -96,6 +113,117 @@ export function CandlestickChart({
       priceLineSeriesRef.current.clear();
     };
   }, [height]);
+
+  // Setup drag handlers
+  useEffect(() => {
+    const container = chartContainerRef.current;
+    if (!container) return;
+
+    const yToPrice = (y: number): number | null => {
+      if (!candleSeriesRef.current) return null;
+      return candleSeriesRef.current.coordinateToPrice(y);
+    };
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (!onPriceLineChangeRef.current) return;
+
+      const rect = container.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const clickPrice = yToPrice(y);
+      if (clickPrice === null) return;
+
+      // Find the closest draggable price line within threshold
+      const threshold = Math.abs(clickPrice) * 0.005; // 0.5% threshold
+      let closestLine: PriceLine | null = null;
+      let closestDist = Infinity;
+
+      for (const line of priceLinesRef.current) {
+        if (line.draggable && line.price > 0) {
+          const dist = Math.abs(line.price - clickPrice);
+          if (dist < threshold && dist < closestDist) {
+            closestDist = dist;
+            closestLine = line;
+          }
+        }
+      }
+
+      if (closestLine) {
+        dragStateRef.current = {
+          id: closestLine.id,
+          startPrice: closestLine.price,
+        };
+        e.preventDefault();
+        e.stopPropagation();
+        document.body.style.cursor = 'ns-resize';
+        // Disable chart interactions while dragging
+        if (chartRef.current) {
+          chartRef.current.applyOptions({
+            handleScroll: false,
+            handleScale: false,
+          });
+        }
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const rect = container.getBoundingClientRect();
+      const y = e.clientY - rect.top;
+      const hoverPrice = yToPrice(y);
+
+      // Handle dragging
+      if (dragStateRef.current && onPriceLineChangeRef.current) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (hoverPrice !== null && hoverPrice > 0) {
+          onPriceLineChangeRef.current(dragStateRef.current.id, Number(hoverPrice.toFixed(4)));
+        }
+        return;
+      }
+
+      // Handle cursor change on hover
+      if (!onPriceLineChangeRef.current || hoverPrice === null) return;
+
+      const threshold = Math.abs(hoverPrice) * 0.005;
+      let isNearLine = false;
+
+      for (const line of priceLinesRef.current) {
+        if (line.draggable && line.price > 0) {
+          const dist = Math.abs(line.price - hoverPrice);
+          if (dist < threshold) {
+            isNearLine = true;
+            break;
+          }
+        }
+      }
+
+      container.style.cursor = isNearLine ? 'ns-resize' : '';
+    };
+
+    const handleMouseUp = () => {
+      if (dragStateRef.current) {
+        dragStateRef.current = null;
+        document.body.style.cursor = '';
+        container.style.cursor = '';
+        // Re-enable chart interactions
+        if (chartRef.current) {
+          chartRef.current.applyOptions({
+            handleScroll: true,
+            handleScale: true,
+          });
+        }
+      }
+    };
+
+    container.addEventListener('mousedown', handleMouseDown);
+    container.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      container.removeEventListener('mousedown', handleMouseDown);
+      container.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
 
   // Update candle data
   useEffect(() => {
@@ -164,7 +292,7 @@ export function CandlestickChart({
   }, [priceLines, candles]);
 
   return (
-    <div ref={chartContainerRef} style={{ height }}>
+    <div ref={chartContainerRef} style={{ height, width: '100%' }}>
       {candles.length === 0 && (
         <div
           className="flex items-center justify-center text-muted-foreground text-sm border border-dashed border-border rounded-lg h-full"

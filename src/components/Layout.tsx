@@ -250,35 +250,26 @@ function BotsSection() {
     return () => clearInterval(interval);
   }, []);
 
-  // Build bot items with status badges
+  // Build bot items - only show running bots
   const botItems: NavItem[] = Object.entries(activeBots)
+    .filter(([, status]) => status.status === 'running')
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([botName, status]) => {
-      const isRunning = status.status === 'running';
-      return {
-        label: formatBotName(botName),
-        path: `/bots/${botName}`,
-        icon: <Bot size={18} />,
-        badge: (
-          <Badge
-            variant="outline"
-            className="text-[10px] px-1.5 py-0"
-          >
-            {isRunning ? (
-              <span className="flex items-center gap-1">
-                <Square size={8} fill="currentColor" className="text-green-500" />
-                Running
-              </span>
-            ) : (
-              <span className="flex items-center gap-1">
-                <Square size={8} fill="currentColor" />
-                Stopped
-              </span>
-            )}
-          </Badge>
-        ),
-      };
-    });
+    .map(([botName]) => ({
+      label: formatBotName(botName),
+      path: `/bots/${botName}`,
+      icon: <Bot size={18} />,
+      badge: (
+        <Badge
+          variant="outline"
+          className="text-[10px] px-1.5 py-0"
+        >
+          <span className="flex items-center gap-1">
+            <Square size={8} fill="currentColor" className="text-green-500" />
+            Running
+          </span>
+        </Badge>
+      ),
+    }));
 
   // Static items at the end
   const staticItems: NavItem[] = [
@@ -350,12 +341,18 @@ export default function Layout() {
     <div className="flex h-full bg-background">
       <Sidebar>
         <SidebarHeader>
-          <div className="flex items-center gap-2">
-            <Bot size={24} className="text-primary" />
-            <div>
-              <h1 className="text-lg font-bold text-foreground">Hummingbot</h1>
-              <p className="text-xs text-muted-foreground">Dashboard</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Bot size={24} className="text-primary" />
+              <div>
+                <h1 className="text-lg font-bold text-foreground">Hummingbot</h1>
+                <p className="text-xs text-muted-foreground">Dashboard</p>
+              </div>
             </div>
+            <ThemeToggle />
+          </div>
+          <div className="mt-3">
+            <AccountSelector />
           </div>
         </SidebarHeader>
 
@@ -384,17 +381,6 @@ export default function Layout() {
       </Sidebar>
 
       <SidebarInset className="flex flex-col h-full !overflow-auto">
-        {/* Header with Account Selector */}
-        <header className="flex items-center justify-between h-14 px-6 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shrink-0">
-          <div className="flex items-center gap-4">
-            {/* Placeholder for breadcrumbs or page title if needed */}
-          </div>
-          <div className="flex items-center gap-3">
-            <AccountSelector />
-            <ThemeToggle />
-          </div>
-        </header>
-
         {/* Main Content */}
         <main className="flex-1 p-6">
           <Outlet />

@@ -31,9 +31,11 @@ export function AccountSelector() {
 
   return (
     <Select value={account} onValueChange={setAccount}>
-      <SelectTrigger className="w-[180px] h-9">
-        <User className="h-4 w-4 mr-2 text-muted-foreground" />
-        <SelectValue placeholder="Select account" />
+      <SelectTrigger className="w-full h-9">
+        <User className="h-4 w-4 mr-2 text-muted-foreground shrink-0" />
+        <span className="flex-1 text-left">
+          <SelectValue placeholder="Select account" />
+        </span>
       </SelectTrigger>
       <SelectContent>
         {accountsList.map((acc) => (

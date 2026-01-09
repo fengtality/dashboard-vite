@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { connectors, accounts, portfolio } from '../api/client';
 import type { PortfolioBalance } from '../api/client';
 import { useAccount } from '@/components/account-provider';
-import { Loader2, Plus, Trash2, Key, Wallet, RefreshCw, AlertCircle } from 'lucide-react';
+import { Loader2, Plus, Trash2, Key, Wallet, RefreshCw, AlertCircle, Coins, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -265,17 +265,24 @@ export default function ManageKeys() {
 
       {/* Connector Type Toggle */}
       <div className="mb-6">
-        <Label className="mb-2 block">Connector Type</Label>
         <Tabs value={connectorType} onValueChange={(v) => setConnectorType(v as ConnectorType)}>
-          <TabsList className="w-full max-w-md">
-            <TabsTrigger value="spot" className="flex-1">Spot</TabsTrigger>
-            <TabsTrigger value="perpetual" className="flex-1">Perpetual</TabsTrigger>
+          <TabsList className="bg-background gap-1 border p-1">
+            <TabsTrigger
+              value="spot"
+              className="data-[state=active]:bg-primary dark:data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:text-primary-foreground"
+            >
+              <Coins className="h-4 w-4 mr-2" />
+              Spot
+            </TabsTrigger>
+            <TabsTrigger
+              value="perpetual"
+              className="data-[state=active]:bg-primary dark:data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:text-primary-foreground"
+            >
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Perpetual
+            </TabsTrigger>
           </TabsList>
         </Tabs>
-        <p className="text-xs text-muted-foreground mt-2">
-          <strong>Spot:</strong> Trade actual assets with immediate settlement.{' '}
-          <strong>Perpetual:</strong> Trade futures contracts with leverage and no expiry date.
-        </p>
       </div>
 
       {/* Existing Keys */}
@@ -404,7 +411,7 @@ export default function ManageKeys() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
+            <div className="grid w-full items-center gap-1.5">
               <Label htmlFor="connector">Select Connector</Label>
               <Combobox
                 options={availableConnectors.map((connector) => ({
@@ -425,7 +432,7 @@ export default function ManageKeys() {
                 {configMap.map((field) => {
                   const label = formatFieldLabel(field, selectedConnector);
                   return (
-                    <div key={field} className="space-y-1.5">
+                    <div key={field} className="grid w-full items-center gap-1.5">
                       <Label htmlFor={field}>{label}</Label>
                       <Input
                         id={field}
@@ -438,7 +445,6 @@ export default function ManageKeys() {
                           }))
                         }
                         placeholder={field}
-                        className="font-mono"
                       />
                     </div>
                   );

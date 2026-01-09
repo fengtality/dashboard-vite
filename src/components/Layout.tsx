@@ -174,7 +174,7 @@ function ConnectorsSection() {
         icon: <Plug size={18} />,
         badge: (
           <Badge
-            variant={isPerp ? 'secondary' : 'outline'}
+            variant="outline"
             className="text-[10px] px-1.5 py-0"
           >
             {isPerp ? 'Perp' : 'Spot'}

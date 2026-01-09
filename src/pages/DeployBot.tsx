@@ -173,25 +173,31 @@ export default function DeployBot() {
           </CardHeader>
           <CardContent>
             <Tabs value={deploymentType} onValueChange={(v) => setDeploymentType(v as DeploymentType)}>
-              <TabsList className="w-full">
-                <TabsTrigger value="v2-controllers" className="flex-1 gap-2">
+              <TabsList className="bg-background gap-1 border p-1">
+                <TabsTrigger
+                  value="v2-controllers"
+                  className="gap-2 data-[state=active]:bg-primary dark:data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:text-primary-foreground"
+                >
                   <Zap size={16} />
-                  V2 Controllers
+                  Controllers
                 </TabsTrigger>
-                <TabsTrigger value="script" className="flex-1 gap-2">
+                <TabsTrigger
+                  value="script"
+                  className="gap-2 data-[state=active]:bg-primary dark:data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:text-primary-foreground"
+                >
                   <FileCode size={16} />
-                  Script
+                  Scripts
                 </TabsTrigger>
               </TabsList>
             </Tabs>
             <p className="text-sm text-muted-foreground mt-3">
               {deploymentType === 'v2-controllers' ? (
                 <>
-                  <strong>V2 Controllers:</strong> Deploy a bot with one or more V2 controller strategies like Grid Strike.
+                  <strong>Controllers:</strong> Deploy a bot with one or more V2 controller strategies like Grid Strike.
                 </>
               ) : (
                 <>
-                  <strong>Script:</strong> Deploy a bot with a simple Python script strategy.
+                  <strong>Scripts:</strong> Deploy a bot with a simple Python script strategy.
                 </>
               )}
             </p>

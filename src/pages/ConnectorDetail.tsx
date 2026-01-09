@@ -209,14 +209,41 @@ export default function ConnectorDetail() {
 
       {/* Tabs for different views */}
       <Tabs defaultValue="balances" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="balances">Balances</TabsTrigger>
-          <TabsTrigger value="orders">Orders ({activeOrders?.data.length ?? 0})</TabsTrigger>
+        <TabsList className="bg-background gap-1 border p-1">
+          <TabsTrigger
+            value="balances"
+            className="data-[state=active]:bg-primary dark:data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:text-primary-foreground"
+          >
+            Balances
+          </TabsTrigger>
+          <TabsTrigger
+            value="orders"
+            className="data-[state=active]:bg-primary dark:data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:text-primary-foreground"
+          >
+            Orders ({activeOrders?.data.length ?? 0})
+          </TabsTrigger>
           {isPerp && (
-            <TabsTrigger value="positions">Positions ({positions?.data.length ?? 0})</TabsTrigger>
+            <TabsTrigger
+              value="positions"
+              className="data-[state=active]:bg-primary dark:data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:text-primary-foreground"
+            >
+              Positions ({positions?.data.length ?? 0})
+            </TabsTrigger>
           )}
-          <TabsTrigger value="trades">Trades</TabsTrigger>
-          {isPerp && <TabsTrigger value="settings">Settings</TabsTrigger>}
+          <TabsTrigger
+            value="trades"
+            className="data-[state=active]:bg-primary dark:data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:text-primary-foreground"
+          >
+            Trades
+          </TabsTrigger>
+          {isPerp && (
+            <TabsTrigger
+              value="settings"
+              className="data-[state=active]:bg-primary dark:data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:text-primary-foreground"
+            >
+              Settings
+            </TabsTrigger>
+          )}
         </TabsList>
 
         {/* Balances Tab */}

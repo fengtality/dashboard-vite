@@ -355,7 +355,7 @@ export default function GridStrikeConfig() {
             <CardDescription>Select a config to edit or create a new one</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
+            <div className="grid w-full items-center gap-1.5">
               {existingConfigs.map((config) => (
                 <div
                   key={config.id}
@@ -450,7 +450,7 @@ export default function GridStrikeConfig() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="connector_name">Connector</Label>
                 <Input
                   id="connector_name"
@@ -462,7 +462,7 @@ export default function GridStrikeConfig() {
                 <p className="text-xs text-muted-foreground">{fieldDescriptions.connector_name}</p>
               </div>
 
-              <div className="space-y-2">
+              <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="trading_pair">Trading Pair</Label>
                 <Input
                   id="trading_pair"
@@ -476,7 +476,7 @@ export default function GridStrikeConfig() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="side">Side</Label>
                 <Select value={formData.side} onValueChange={(v) => updateField('side', v as 'BUY' | 'SELL')}>
                   <SelectTrigger id="side">
@@ -490,7 +490,7 @@ export default function GridStrikeConfig() {
                 <p className="text-xs text-muted-foreground">{fieldDescriptions.side}</p>
               </div>
 
-              <div className="space-y-2">
+              <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="position_mode">Position Mode</Label>
                 <Select value={formData.position_mode} onValueChange={(v) => updateField('position_mode', v as 'HEDGE' | 'ONEWAY')}>
                   <SelectTrigger id="position_mode">
@@ -515,7 +515,7 @@ export default function GridStrikeConfig() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
+              <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="start_price">Start Price</Label>
                 <Input
                   id="start_price"
@@ -527,7 +527,7 @@ export default function GridStrikeConfig() {
                 <p className="text-xs text-muted-foreground">{fieldDescriptions.start_price}</p>
               </div>
 
-              <div className="space-y-2">
+              <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="end_price">End Price</Label>
                 <Input
                   id="end_price"
@@ -539,7 +539,7 @@ export default function GridStrikeConfig() {
                 <p className="text-xs text-muted-foreground">{fieldDescriptions.end_price}</p>
               </div>
 
-              <div className="space-y-2">
+              <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="limit_price">Limit Price (Stop Loss)</Label>
                 <Input
                   id="limit_price"
@@ -553,7 +553,7 @@ export default function GridStrikeConfig() {
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="min_spread_between_orders">Min Spread Between Orders</Label>
                 <Input
                   id="min_spread_between_orders"
@@ -565,7 +565,7 @@ export default function GridStrikeConfig() {
                 <p className="text-xs text-muted-foreground">{fieldDescriptions.min_spread_between_orders}</p>
               </div>
 
-              <div className="space-y-2">
+              <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="activation_bounds">Activation Bounds (Optional)</Label>
                 <Input
                   id="activation_bounds"
@@ -588,7 +588,7 @@ export default function GridStrikeConfig() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
+              <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="total_amount_quote">Total Amount (Quote)</Label>
                 <Input
                   id="total_amount_quote"
@@ -600,7 +600,7 @@ export default function GridStrikeConfig() {
                 <p className="text-xs text-muted-foreground">{fieldDescriptions.total_amount_quote}</p>
               </div>
 
-              <div className="space-y-2">
+              <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="leverage">Leverage</Label>
                 <Input
                   id="leverage"
@@ -613,7 +613,7 @@ export default function GridStrikeConfig() {
                 <p className="text-xs text-muted-foreground">{fieldDescriptions.leverage}</p>
               </div>
 
-              <div className="space-y-2">
+              <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="min_order_amount_quote">Min Order Amount (Quote)</Label>
                 <Input
                   id="min_order_amount_quote"
@@ -636,7 +636,7 @@ export default function GridStrikeConfig() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
+              <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="max_open_orders">Max Open Orders</Label>
                 <Input
                   id="max_open_orders"
@@ -648,7 +648,7 @@ export default function GridStrikeConfig() {
                 <p className="text-xs text-muted-foreground">{fieldDescriptions.max_open_orders}</p>
               </div>
 
-              <div className="space-y-2">
+              <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="max_orders_per_batch">Max Orders Per Batch</Label>
                 <Input
                   id="max_orders_per_batch"
@@ -660,7 +660,7 @@ export default function GridStrikeConfig() {
                 <p className="text-xs text-muted-foreground">{fieldDescriptions.max_orders_per_batch}</p>
               </div>
 
-              <div className="space-y-2">
+              <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="order_frequency">Order Frequency (seconds)</Label>
                 <Input
                   id="order_frequency"
@@ -683,7 +683,7 @@ export default function GridStrikeConfig() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
+              <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="take_profit">Take Profit (%)</Label>
                 <Input
                   id="take_profit"
@@ -695,7 +695,7 @@ export default function GridStrikeConfig() {
                 <p className="text-xs text-muted-foreground">{fieldDescriptions.take_profit}</p>
               </div>
 
-              <div className="space-y-2">
+              <div className="grid w-full items-center gap-1.5">
                 <Label htmlFor="stop_loss">Stop Loss (%) (Optional)</Label>
                 <Input
                   id="stop_loss"

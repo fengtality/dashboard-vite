@@ -347,7 +347,7 @@ function ThemeToggle() {
 
 export default function Layout() {
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex h-full bg-background">
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2">
@@ -383,9 +383,9 @@ export default function Layout() {
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset className="flex flex-col">
+      <SidebarInset className="flex flex-col h-full !overflow-auto">
         {/* Header with Account Selector */}
-        <header className="flex items-center justify-between h-14 px-6 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <header className="flex items-center justify-between h-14 px-6 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shrink-0">
           <div className="flex items-center gap-4">
             {/* Placeholder for breadcrumbs or page title if needed */}
           </div>
@@ -396,7 +396,7 @@ export default function Layout() {
         </header>
 
         {/* Main Content */}
-        <main className="flex-1 p-6 overflow-auto">
+        <main className="flex-1 p-6">
           <Outlet />
         </main>
       </SidebarInset>

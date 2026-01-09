@@ -104,14 +104,16 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-body {
+html, body {
   margin: 0;
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
   transition: background-color 0.2s, color 0.2s;
 }
 
 #root {
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
 }

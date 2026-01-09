@@ -44,7 +44,7 @@ export function Sidebar({ className, children, ...props }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'flex h-screen w-64 flex-col bg-sidebar-background border-r border-sidebar-border',
+        'flex h-full w-64 flex-col bg-sidebar-background border-r border-sidebar-border',
         className
       )}
       {...props}

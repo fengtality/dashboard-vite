@@ -1,0 +1,188 @@
+# CLAUDE.md
+
+This file provides guidance for Claude Code when working on this project.
+
+## Project Overview
+
+This is **Hummingbot Dashboard**, a browser-based frontend for managing Hummingbot trading bots. It's a TypeScript/React re-implementation of the original Python/Streamlit dashboard, designed to interface with the Hummingbot Backend API server.
+
+## Tech Stack
+
+- **Vite** - Build tool and dev server
+- **React 19** - UI framework
+- **TypeScript** - Type safety
+- **Tailwind CSS v4** - Styling with `@tailwindcss/vite` plugin
+- **shadcn/ui** - Component library built on Radix UI primitives
+- **React Router v7** - Client-side routing
+- **Lucide React** - Icons
+
+## Key Architecture Decisions
+
+### Global Account Context
+The selected account is managed globally via `AccountProvider` in `src/components/account-provider.tsx`:
+- Account selection persists to localStorage
+- Available via `useAccount()` hook
+- Account selector is shown in the header (upper right)
+- Pages use the global account instead of their own selectors
+
+### Configuration
+Environment variables are defined in `.env` (copy from `.env.example`):
+- `VITE_API_URL` - API base URL (default: `/api` for dev proxy)
+- `VITE_API_USERNAME` - Basic auth username
+- `VITE_API_PASSWORD` - Basic auth password
+
+Configuration is centralized in `src/config.ts`.
+
+### API Client Pattern
+All API calls go through `src/api/client.ts`. The client:
+- Uses `config.api.baseUrl` from environment
+- Adds Basic Auth header from environment credentials
+- Handles JSON serialization
+- Exports typed API modules: `connectors`, `accounts`, `controllers`, `bots`, `archivedBots`, `docker`, `portfolio`, `trading`
+
+**Trading API** (`trading.*`) - For connector monitoring:
+- `getActiveOrders(filter)` - Get in-flight orders
+- `getOrders(filter)` - Get historical orders
+- `getPositions(filter)` - Get open positions (perpetual only)
+- `getTrades(filter)` - Get trade history
+- `getFundingPayments(filter)` - Get funding payments (perpetual only)
+- `placeOrder(request)` - Place a new order
+- `cancelOrder(account, connector, orderId)` - Cancel an order
+- `getPositionMode(account, connector)` - Get position mode (perpetual)
+- `setPositionMode(account, connector, mode)` - Set position mode (perpetual)
+- `setLeverage(account, connector, pair, leverage)` - Set leverage (perpetual)
+
+### Component Library
+Use **shadcn/ui** components from `src/components/ui/`. These are:
+- Built on Radix UI primitives for accessibility
+- Styled with Tailwind CSS using semantic color tokens
+- Located in `src/components/ui/*.tsx`
+
+Available components:
+- `Alert`, `AlertDialog` - Notifications and confirmations
+- `Badge` - Labels with variants (default, secondary, destructive, outline)
+- `Button` - Actions with variants (default, destructive, outline, ghost)
+- `Card` - Content containers
+- `Combobox` - Searchable select (uses Command + Popover)
+- `Command` - Command palette / search
+- `Input`, `Label` - Form inputs
+- `Popover` - Floating content
+- `Select` - Dropdown selection
+- `Separator` - Visual dividers
+- `Sidebar` - Navigation sidebar
+- `Sonner` - Toast notifications
+- `Tabs` - Tabbed interfaces
+- `Tooltip` - Hover hints
+
+### Layout Structure
+- **Sidebar** - Collapsible navigation with sections:
+  - Connectors: Dynamic list of connected exchanges with Spot/Perp badges + Add Keys link
+  - Controllers: Strategy configuration pages
+  - Bots: Active bots, deploy, and archived bots
+- **Header** - Account selector (right) and theme toggle
+- **Main Content** - Page content via React Router Outlet
+
+### Theming
+- CSS variables in `src/index.css` define colors for light/dark modes
+- `ThemeProvider` in `src/components/theme-provider.tsx` manages theme state
+- Use semantic color classes: `bg-background`, `text-foreground`, `border-border`, etc.
+- Primary colors: `#00B1BB` (light), `#5FFFD7` (dark)
+
+### Routing
+Routes defined in `src/App.tsx`:
+- `/connectors/keys` - ManageKeys (manage API keys)
+- `/connectors/:connectorName` - ConnectorDetail (monitor orders, positions, trades)
+- `/controllers/grid-strike` - CreateConfig
+- `/bots` - ActiveBots
+- `/bots/deploy` - DeployBot
+- `/bots/archived` - ArchivedBots
+
+## Code Style Guidelines
+
+### Component Structure
+```tsx
+import { useState, useEffect } from 'react';
+import { apiModule } from '../api/client';
+import { useAccount } from '@/components/account-provider';
+import { ComponentName } from '@/components/ui/component-name';
+
+export default function PageName() {
+  const { account } = useAccount();
+  const [data, setData] = useState<Type[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const result = await apiModule.method();
+        setData(result);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch');
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+
+  if (loading) return <Loader2 className="animate-spin" />;
+  if (error) return <Alert variant="destructive">{error}</Alert>;
+
+  return (/* JSX */);
+}
+```
+
+### Import Aliases
+Use `@/` alias for src imports:
+```tsx
+import { Button } from '@/components/ui/button';
+import { useAccount } from '@/components/account-provider';
+import { cn } from '@/lib/utils';
+```
+
+### Styling
+- Use Tailwind utility classes
+- Use `cn()` helper for conditional classes
+- Prefer semantic tokens over hardcoded colors
+- Example: `className={cn('bg-card text-card-foreground', isActive && 'bg-primary')}`
+
+## Common Tasks
+
+### Adding a New Page
+1. Create component in `src/pages/NewPage.tsx`
+2. Add route in `src/App.tsx`
+3. Add navigation item in `src/components/Layout.tsx`
+4. Use `useAccount()` hook if the page needs account context
+
+### Adding a New UI Component
+1. Check https://ui.shadcn.com/docs/components for existing patterns
+2. Create in `src/components/ui/component-name.tsx`
+3. Follow shadcn/ui patterns (forwardRef, cn utility, semantic colors)
+4. Export from the file
+
+### Adding an API Endpoint
+1. Add types and methods to `src/api/client.ts`
+2. Follow existing patterns for request/response handling
+3. Reference `openapi.json` for exact request/response structures
+
+## Build & Development
+
+```bash
+npm run dev      # Start dev server (http://localhost:5173)
+npm run build    # Production build
+npm run lint     # Run ESLint
+```
+
+The dev server proxies `/api/*` to `http://localhost:8000` (Backend API).
+
+## Important Notes
+
+- **No fallback data** - Always fetch from API, throw clear errors
+- **No deprecated methods** - Update all references instead
+- **Dynamic data** - Prefer real-time fetching over hardcoded values
+- **Keep it simple** - Avoid over-engineering, only add what's needed
+- **Use existing components** - Check `src/components/ui/` before creating new ones
+- **Check shadcn/ui docs** - When adding new UI components, check https://ui.shadcn.com/docs/components for existing patterns and copy their implementation to ensure consistency with other components in the project
+- **Use global account** - Pages should use `useAccount()` hook instead of their own account selectors
+- **Terminology** - Use "Keys" instead of "Credentials" for API key management

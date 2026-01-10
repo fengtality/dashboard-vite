@@ -1630,7 +1630,7 @@ export default function TradePage({ type }: TradePageProps) {
                       return (
                         <div className="space-y-3">
                           <div className="space-y-1.5">
-                            <Label className="text-xs">{isPerp ? `Amount (${leverage}x leverage)` : 'Amount'}</Label>
+                            <Label className="text-xs">Amount</Label>
                             <div className="flex items-center border border-border rounded-md h-9">
                               <Input
                                 type="text"
@@ -1656,6 +1656,40 @@ export default function TradePage({ type }: TradePageProps) {
                               <span className="text-sm">{sliderPercent}</span>
                               <span className="text-xs text-muted-foreground">%</span>
                             </div>
+                          </div>
+
+                          {/* Order Summary */}
+                          <div className="border-t border-border pt-3 space-y-2">
+                            {(() => {
+                              const orderValue = tradeAmount && price > 0 ? parseFloat(tradeAmount) * price : 0;
+                              const marginRequired = orderValue / leverage;
+
+                              return (
+                                <>
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-muted-foreground">{tradeSide === 'BUY' ? 'Buy' : 'Sell'}</span>
+                                    <span>{tradeAmount ? `${parseFloat(tradeAmount).toFixed(6)} ${base}` : `0 ${base}`}</span>
+                                  </div>
+                                  {isPerp ? (
+                                    <>
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-muted-foreground">Order Value</span>
+                                        <span>{orderValue.toFixed(2)} {quote}</span>
+                                      </div>
+                                      <div className="flex justify-between text-sm">
+                                        <span className="text-muted-foreground">Margin Required</span>
+                                        <span>{marginRequired.toFixed(2)} {quote}</span>
+                                      </div>
+                                    </>
+                                  ) : (
+                                    <div className="flex justify-between text-sm">
+                                      <span className="text-muted-foreground">{tradeSide === 'BUY' ? 'Sell' : 'Buy'}</span>
+                                      <span>{orderValue.toFixed(2)} {quote}</span>
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
                           </div>
                         </div>
                       );

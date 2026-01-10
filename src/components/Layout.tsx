@@ -6,7 +6,7 @@ import {
   Zap,
   Sun,
   Moon,
-  User,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/theme-provider';
@@ -56,11 +56,6 @@ export default function Layout() {
 
           {/* Navigation */}
           <nav className="flex items-center gap-1">
-            <NavLink to="/keys" isActive={location.pathname === '/keys'}>
-              <Key size={16} className="mr-2" />
-              Keys
-            </NavLink>
-
             <NavLink to="/trade/spot" isActive={location.pathname === '/trade/spot'}>
               <Plug size={16} className="mr-2" />
               Spot Markets
@@ -82,11 +77,15 @@ export default function Layout() {
             </NavLink>
           </nav>
 
-          {/* Right side - Account Settings & Theme */}
-          <div className="ml-auto flex items-center gap-3">
-            <NavLink to="/account" isActive={location.pathname === '/account'}>
-              <User size={16} className="mr-2" />
-              Account
+          {/* Right side - Keys, Account & Theme */}
+          <div className="ml-auto flex items-center gap-1">
+            <NavLink to="/keys" isActive={location.pathname === '/keys'}>
+              <Key size={16} className="mr-2" />
+              Keys
+            </NavLink>
+            <NavLink to="/settings" isActive={location.pathname.startsWith('/settings')}>
+              <Settings size={16} className="mr-2" />
+              Settings
             </NavLink>
             <ThemeToggle />
           </div>

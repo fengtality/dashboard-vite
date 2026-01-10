@@ -243,7 +243,7 @@ export default function ManageKeys() {
   return (
     <div className="max-w-4xl">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Add Keys</h1>
+        <h1 className="text-2xl font-bold text-foreground">Keys</h1>
         <p className="text-muted-foreground mt-1">
           Add or remove exchange API keys for <span className="font-medium text-foreground">{account || 'your account'}</span>
         </p>

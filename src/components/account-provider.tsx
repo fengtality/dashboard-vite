@@ -1,11 +1,18 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
 import { accounts } from '../api/client';
 
+// Get user's local timezone
+function getLocalTimezone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
 interface AccountContextType {
   account: string;
   setAccount: (account: string) => void;
   accountsList: string[];
   isLoading: boolean;
+  timezone: string;
+  setTimezone: (tz: string) => void;
 }
 
 const AccountContext = createContext<AccountContextType | undefined>(undefined);
@@ -14,6 +21,10 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const [account, setAccountState] = useState<string>('');
   const [accountsList, setAccountsList] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [timezone, setTimezoneState] = useState<string>(() => {
+    const stored = localStorage.getItem('hummingbot-timezone');
+    return stored || getLocalTimezone();
+  });
 
   useEffect(() => {
     async function fetchAccounts() {
@@ -41,8 +52,13 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('hummingbot-selected-account', newAccount);
   }
 
+  function setTimezone(tz: string) {
+    setTimezoneState(tz);
+    localStorage.setItem('hummingbot-timezone', tz);
+  }
+
   return (
-    <AccountContext.Provider value={{ account, setAccount, accountsList, isLoading }}>
+    <AccountContext.Provider value={{ account, setAccount, accountsList, isLoading, timezone, setTimezone }}>
       {children}
     </AccountContext.Provider>
   );

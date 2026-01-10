@@ -33,8 +33,8 @@ function App() {
             <Route path="bots" element={<BotsPage />} />
             <Route path="bots/:botName" element={<BotDetail />} />
             <Route path="bots/deploy" element={<DeployBot />} />
-            {/* Account */}
-            <Route path="account" element={<AccountPage />} />
+            {/* Settings */}
+            <Route path="settings" element={<AccountPage />} />
           </Route>
         </Routes>
       </AccountProvider>

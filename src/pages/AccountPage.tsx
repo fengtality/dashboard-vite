@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   HoverCard,
@@ -13,6 +12,7 @@ import {
 import { config } from '@/config';
 import { generateTelegramDeepLink, generateServerName } from '@/lib/deeplink';
 import { useAccount } from '@/components/account-provider';
+import { cn } from '@/lib/utils';
 import { Send, Server, Loader2, User, HelpCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -35,8 +35,33 @@ function FieldLabel({ htmlFor, children, help }: { htmlFor: string; children: Re
 
 const PUBLIC_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'condor_tg_bot';
 
+const sections = [
+  { id: 'account', label: 'Account', icon: User },
+  { id: 'api-server', label: 'API Server', icon: Server },
+  { id: 'telegram', label: 'Telegram Bot', icon: Send },
+];
+
 export default function AccountPage() {
-  const { account, setAccount, accountsList } = useAccount();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeSection = searchParams.get('section') || 'account';
+
+  const { account, setAccount, accountsList, timezone, setTimezone } = useAccount();
+
+  // Common timezones for the selector
+  const timezones = [
+    { value: Intl.DateTimeFormat().resolvedOptions().timeZone, label: `Local (${Intl.DateTimeFormat().resolvedOptions().timeZone})` },
+    { value: 'UTC', label: 'UTC' },
+    { value: 'America/New_York', label: 'New York (EST/EDT)' },
+    { value: 'America/Chicago', label: 'Chicago (CST/CDT)' },
+    { value: 'America/Los_Angeles', label: 'Los Angeles (PST/PDT)' },
+    { value: 'Europe/London', label: 'London (GMT/BST)' },
+    { value: 'Europe/Paris', label: 'Paris (CET/CEST)' },
+    { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
+    { value: 'Asia/Shanghai', label: 'Shanghai (CST)' },
+    { value: 'Asia/Singapore', label: 'Singapore (SGT)' },
+    { value: 'Asia/Dubai', label: 'Dubai (GST)' },
+    { value: 'Australia/Sydney', label: 'Sydney (AEST/AEDT)' },
+  ];
   const [loading, setLoading] = useState(false);
   const [botUsername, setBotUsername] = useState(PUBLIC_BOT_USERNAME);
   const [isEditingBot, setIsEditingBot] = useState(false);
@@ -75,28 +100,41 @@ export default function AccountPage() {
     }
   }
 
+  function setActiveSection(section: string) {
+    setSearchParams({ section });
+  }
+
   return (
-    <div className="container mx-auto max-w-4xl">
-      <h1 className="text-2xl font-bold mb-6">Account</h1>
+    <div className="flex -mt-6 -ml-6 min-h-[calc(100vh-theme(spacing.14)-theme(spacing.10))]">
+      {/* Left Sidebar */}
+      <div className="w-56 shrink-0 p-6 border-r border-border">
+        <h1 className="text-lg font-semibold mb-4">Settings</h1>
+        <nav className="flex flex-col gap-1">
+          {sections.map((section) => (
+            <button
+              key={section.id}
+              onClick={() => setActiveSection(section.id)}
+              className={cn(
+                'flex items-center gap-2 px-3 py-2 text-sm rounded-md text-left transition-colors',
+                activeSection === section.id
+                  ? 'bg-accent text-accent-foreground font-medium'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              <section.icon size={16} />
+              {section.label}
+            </button>
+          ))}
+        </nav>
+      </div>
 
-      <Tabs defaultValue="account">
-        <TabsList className="mb-4">
-          <TabsTrigger value="account">Account</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="account" className="space-y-6">
-          {/* Trading Account Selector */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User size={20} />
-                Trading Account
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
+      {/* Main Content */}
+      <div className="flex-1 min-w-0 p-6">
+        {activeSection === 'account' && (
+          <div className="space-y-8">
+            <div>
+              <h2 className="text-xl font-semibold mb-1">Trading Account</h2>
+              <p className="text-sm text-muted-foreground mb-4">
                 Select the trading account to use for orders and portfolio tracking.
               </p>
               {accountsList.length > 0 ? (
@@ -115,56 +153,66 @@ export default function AccountPage() {
               ) : (
                 <p className="text-sm text-muted-foreground">No accounts available</p>
               )}
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* API Server Info */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Server size={20} />
-                API Server
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Host</span>
-                  <p className="font-mono">{host}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Port</span>
-                  <p className="font-mono">{port}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Username</span>
-                  <p className="font-mono">{config.api.username}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Status</span>
-                  <p className="flex items-center gap-2">
-                    <span className="h-2 w-2 rounded-full bg-green-500" />
-                    Connected
-                  </p>
-                </div>
+            <div>
+              <h2 className="text-xl font-semibold mb-1">Time Zone</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Set the time zone for charts and timestamps.
+              </p>
+              <Select value={timezone} onValueChange={setTimezone}>
+                <SelectTrigger className="w-full max-w-xs">
+                  <SelectValue placeholder="Select timezone" />
+                </SelectTrigger>
+                <SelectContent>
+                  {timezones.map((tz) => (
+                    <SelectItem key={tz.value} value={tz.value}>
+                      {tz.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        )}
+
+        {activeSection === 'api-server' && (
+          <div>
+            <h2 className="text-xl font-semibold mb-1">API Server</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Connection details for the Hummingbot backend server.
+            </p>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-muted-foreground">Host</span>
+                <p className="font-mono">{host}</p>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Telegram Integration */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Send size={20} />
-                Connect Telegram
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <p className="text-sm text-muted-foreground">
-                  Connect this API server to the Condor Telegram bot to deploy and manage your trading bots from anywhere.
+              <div>
+                <span className="text-muted-foreground">Port</span>
+                <p className="font-mono">{port}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Username</span>
+                <p className="font-mono">{config.api.username}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Status</span>
+                <p className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-green-500" />
+                  Connected
                 </p>
+              </div>
+            </div>
+          </div>
+        )}
 
+        {activeSection === 'telegram' && (
+          <div>
+            <h2 className="text-xl font-semibold mb-1">Telegram Bot</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Connect this API server to the Condor Telegram bot to deploy and manage your trading bots from anywhere.
+            </p>
+            <div className="space-y-6">
                 {/* Condor Bot Username */}
                 <div className="flex flex-col gap-1.5">
                   <FieldLabel htmlFor="botUsername" help="The Telegram username of the Condor bot you want to connect to. Use the default public bot or enter your own private Condor bot username.">
@@ -209,47 +257,24 @@ export default function AccountPage() {
                   />
                 </div>
 
-                {/* Connect Button */}
-                <Button
-                  onClick={handleConnectTelegram}
-                  disabled={loading || !serverName || !botUsername}
-                  className="w-fit"
-                  size="lg"
-                >
-                  {loading ? (
-                    <Loader2 className="animate-spin mr-2" size={18} />
-                  ) : (
-                    <Send className="mr-2" size={18} />
-                  )}
-                  Connect to Telegram
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="security">
-          <Card>
-            <CardHeader>
-              <CardTitle>Security</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Security settings coming soon.</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="settings">
-          <Card>
-            <CardHeader>
-              <CardTitle>Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">General settings coming soon.</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+              {/* Connect Button */}
+              <Button
+                onClick={handleConnectTelegram}
+                disabled={loading || !serverName || !botUsername}
+                className="w-fit"
+                size="lg"
+              >
+                {loading ? (
+                  <Loader2 className="animate-spin mr-2" size={18} />
+                ) : (
+                  <Send className="mr-2" size={18} />
+                )}
+                Connect to Telegram
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

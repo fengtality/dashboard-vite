@@ -3,7 +3,15 @@ import { useEffect, useState } from 'react';
 import { useAccount } from '@/components/account-provider';
 import { portfolio, trading, connectors, marketData, accounts, controllers } from '@/api/client';
 import type { PortfolioBalance, PaginatedResponse, TradingRule, TradeRequest } from '@/api/client';
-import { Loader2, Grid3X3, Activity, Settings, Rocket, RefreshCw, Info } from 'lucide-react';
+import { Loader2, Grid3X3, Activity, Settings, Rocket, RefreshCw, Info, Key } from 'lucide-react';
+import {
+  Empty,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+  EmptyDescription,
+  EmptyContent,
+} from '@/components/ui/empty';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -66,7 +74,8 @@ interface TradePageProps {
 }
 
 export default function TradePage({ type }: TradePageProps) {
-  const { account } = useAccount();
+  const navigate = useNavigate();
+  const { account, timezone } = useAccount();
 
   // Selected connector state
   const [selectedConnector, setSelectedConnector] = useState<string>('');
@@ -139,8 +148,6 @@ export default function TradePage({ type }: TradePageProps) {
   const [placingOrder, setPlacingOrder] = useState(false);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
 
-  const navigate = useNavigate();
-
   const isPerp = type === 'perp';
 
   // Reset state when switching between spot and perp
@@ -204,6 +211,22 @@ export default function TradePage({ type }: TradePageProps) {
     }
     fetchConnectedConnectors();
   }, [account, selectedConnector, isPerp]);
+
+  // Reset account-related data when connector changes
+  useEffect(() => {
+    setBalances([]);
+    setActiveOrders(null);
+    setPositions(null);
+    setTrades(null);
+    setCurrentPrice(null);
+    setOrderBook(null);
+    setCandles([]);
+    setFundingInfo(null);
+    setTradePrice('');
+    setGridStartPrice('');
+    setGridEndPrice('');
+    setGridLimitPrice('');
+  }, [selectedConnector]);
 
   // Fetch trading pairs when connector changes
   useEffect(() => {
@@ -714,9 +737,9 @@ export default function TradePage({ type }: TradePageProps) {
   ].filter(l => l.price > 0) : [];
 
   return (
-    <div className="space-y-0">
+    <div className="-m-6">
       {/* Header Row - Exchange & Pair Selectors */}
-      <div className="flex items-center gap-4 pb-4 border-b border-border">
+      <div className="flex items-center gap-4 px-6 py-4 border-b border-border">
         <h1 className="text-lg font-semibold">{isPerp ? 'Perp Markets' : 'Spot Markets'}</h1>
         <div className="w-52">
           <Combobox
@@ -736,7 +759,10 @@ export default function TradePage({ type }: TradePageProps) {
                 })
                 .map(c => ({
                   value: c,
-                  label: `${formatConnectorName(c)}${connectedConnectors.includes(c) ? ' ●' : ''}`,
+                  label: connectedConnectors.includes(c)
+                    ? <span className="flex items-center gap-1.5">{formatConnectorName(c)} <Key size={12} /></span>
+                    : formatConnectorName(c),
+                  searchValue: formatConnectorName(c),
                 }));
             })()}
             value={selectedConnector}
@@ -814,25 +840,25 @@ export default function TradePage({ type }: TradePageProps) {
       </div>
 
       {error && (
-        <Alert variant="destructive" className="mt-4">
+        <Alert variant="destructive" className="mx-6 mt-4">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
       {!account && (
-        <Alert className="mt-4">
+        <Alert className="mx-6 mt-4">
           <AlertDescription>Please select an account from the header to view exchange data.</AlertDescription>
         </Alert>
       )}
 
       {/* Resizable Panel Layout */}
-      <ResizablePanelGroup direction="vertical" className="flex-1 mt-4" style={{ minHeight: 'calc(100vh - 180px)' }}>
+      <ResizablePanelGroup direction="vertical" className="flex-1" style={{ minHeight: 'calc(100vh - 140px)' }}>
         {/* Top Section - Chart & Actions */}
         <ResizablePanel defaultSize={60} minSize={30}>
           <ResizablePanelGroup direction="horizontal">
             {/* Chart Panel */}
             <ResizablePanel defaultSize={75} minSize={50}>
-              <div className="h-full p-4 flex flex-col overflow-hidden">
+              <div className="h-full px-6 py-4 flex flex-col overflow-hidden">
                 {/* Tab Navigation with Pair & Price centered */}
                 <Tabs value={chartPanelTab} onValueChange={(v) => setChartPanelTab(v as 'orderbook' | 'chart')} className="flex-1 flex flex-col min-h-0">
                   <div className="flex items-center justify-between mb-3">
@@ -1133,6 +1159,7 @@ export default function TradePage({ type }: TradePageProps) {
                         candles={candles}
                         emptyMessage="No candle data available"
                         priceLines={chartPriceLines}
+                        timezone={timezone}
                         onPriceLineChange={(id, newPrice) => {
                           if (id === 'start') setGridStartPrice(newPrice.toFixed(2));
                           else if (id === 'end') setGridEndPrice(newPrice.toFixed(2));
@@ -1150,7 +1177,27 @@ export default function TradePage({ type }: TradePageProps) {
 
             {/* Actions Panel */}
             <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
-              <div className="h-full p-4 overflow-y-auto">
+              <div className="h-full px-6 py-4 overflow-y-auto">
+                {selectedConnector && !connectedConnectors.includes(selectedConnector) ? (
+                  <Empty className="h-full">
+                    <EmptyHeader>
+                      <EmptyMedia variant="icon">
+                        <Key size={24} className="text-muted-foreground" />
+                      </EmptyMedia>
+                      <EmptyTitle>No Keys Connected</EmptyTitle>
+                      <EmptyDescription>
+                        Connect your {formatConnectorName(selectedConnector)} API keys to start trading.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                    <EmptyContent>
+                      <Button onClick={() => navigate('/keys')}>
+                        <Key size={16} className="mr-2" />
+                        Manage Keys
+                      </Button>
+                    </EmptyContent>
+                  </Empty>
+                ) : (
+                  <>
                 {/* Leverage and Position Mode settings (perp only) */}
                 {isPerp && (
                   <div className="flex gap-2 mb-4">
@@ -1404,6 +1451,8 @@ export default function TradePage({ type }: TradePageProps) {
                     </Button>
                   </TabsContent>
                 </Tabs>
+                  </>
+                )}
               </div>
             </ResizablePanel>
           </ResizablePanelGroup>
@@ -1413,7 +1462,7 @@ export default function TradePage({ type }: TradePageProps) {
 
         {/* Bottom Section - Tabs */}
         <ResizablePanel defaultSize={40} minSize={20}>
-          <div className="h-full p-4 overflow-auto">
+          <div className="h-full px-6 py-4 overflow-auto">
             {loading ? (
               <div className="flex items-center justify-center h-32">
                 <Loader2 className="animate-spin text-primary" size={24} />

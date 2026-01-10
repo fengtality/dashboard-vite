@@ -18,7 +18,8 @@ import {
 
 export interface ComboboxOption {
   value: string;
-  label: string;
+  label: React.ReactNode;
+  searchValue?: string; // Optional string for search matching when label is ReactNode
 }
 
 interface ComboboxProps {
@@ -50,10 +51,11 @@ export function Combobox({
   const selectedOption = options.find((option) => option.value === value);
 
   // Check if search matches any existing option
-  const searchMatchesOption = options.some(
-    (option) => option.value.toLowerCase() === search.toLowerCase() ||
-                option.label.toLowerCase() === search.toLowerCase()
-  );
+  const searchMatchesOption = options.some((option) => {
+    const searchStr = option.searchValue ?? (typeof option.label === 'string' ? option.label : '');
+    return option.value.toLowerCase() === search.toLowerCase() ||
+           searchStr.toLowerCase() === search.toLowerCase();
+  });
 
   // Show custom value option if allowed and search doesn't match existing
   const showCustomOption = allowCustomValue && search.trim() && !searchMatchesOption;

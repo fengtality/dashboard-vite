@@ -26,6 +26,7 @@ interface CandlestickChartProps {
   height?: number | string;
   emptyMessage?: string;
   onPriceLineChange?: (id: string, newPrice: number) => void;
+  timezone?: string;
 }
 
 export function CandlestickChart({
@@ -34,6 +35,7 @@ export function CandlestickChart({
   height = '100%',
   emptyMessage = 'No candle data available',
   onPriceLineChange,
+  timezone = Intl.DateTimeFormat().resolvedOptions().timeZone,
 }: CandlestickChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -62,6 +64,18 @@ export function CandlestickChart({
 
     const container = chartContainerRef.current;
     const initialHeight = typeof height === 'number' ? height : container.clientHeight || 300;
+    // Create time formatter for the specified timezone
+    const formatTime = (time: Time | number) => {
+      const timestamp = typeof time === 'number' ? time : Number(time);
+      const date = new Date(timestamp * 1000);
+      return date.toLocaleTimeString('en-US', {
+        timeZone: timezone,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      });
+    };
+
     const chart = createChart(container, {
       width: container.clientWidth,
       height: initialHeight,
@@ -80,10 +94,14 @@ export function CandlestickChart({
       timeScale: {
         borderColor: 'rgba(156, 163, 175, 0.2)',
         timeVisible: true,
+        tickMarkFormatter: (time: number) => formatTime(time),
       },
       crosshair: {
         horzLine: { color: '#9ca3af', labelBackgroundColor: '#374151' },
         vertLine: { color: '#9ca3af', labelBackgroundColor: '#374151' },
+      },
+      localization: {
+        timeFormatter: formatTime,
       },
     });
 
@@ -131,7 +149,7 @@ export function CandlestickChart({
       priceLineSeriesRef.current.clear();
       setChartReady(false);
     };
-  }, [height]);
+  }, [height, timezone]);
 
   // Setup drag handlers
   useEffect(() => {

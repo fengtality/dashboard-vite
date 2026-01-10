@@ -171,7 +171,8 @@ export default function TradePage({ type }: TradePageProps) {
   const [sliderPercent, setSliderPercent] = useState<number>(0);
   const [tradePrice, setTradePrice] = useState<string>('');
 
-  // Grid Bot form state
+  // Bot form state
+  const [botType, setBotType] = useState<'grid' | 'pmm'>('grid');
   const [gridSide, setGridSide] = useState<'BUY' | 'SELL'>('BUY');
   const [gridStartPrice, setGridStartPrice] = useState<string>('');
   const [gridEndPrice, setGridEndPrice] = useState<string>('');
@@ -1487,8 +1488,8 @@ export default function TradePage({ type }: TradePageProps) {
                       Trade
                     </TabsTrigger>
                     <TabsTrigger value="grid" className="flex-1 gap-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-                      <Grid3X3 size={14} />
-                      Grid Bot
+                      <Rocket size={14} />
+                      Run Bot
                     </TabsTrigger>
                   </TabsList>
 
@@ -1713,8 +1714,34 @@ export default function TradePage({ type }: TradePageProps) {
                     </Button>
                   </TabsContent>
 
-                  {/* Grid Bot Tab */}
+                  {/* Run Bot Tab */}
                   <TabsContent value="grid" className="space-y-3 mt-0">
+                    {/* Grid/PMM Tabs */}
+                    <div className="flex border-b border-border">
+                      <button
+                        className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${
+                          botType === 'grid'
+                            ? 'border-primary text-foreground'
+                            : 'border-transparent text-muted-foreground hover:text-foreground'
+                        }`}
+                        onClick={() => setBotType('grid')}
+                      >
+                        Grid
+                      </button>
+                      <button
+                        className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${
+                          botType === 'pmm'
+                            ? 'border-primary text-foreground'
+                            : 'border-transparent text-muted-foreground hover:text-foreground'
+                        }`}
+                        onClick={() => setBotType('pmm')}
+                      >
+                        PMM
+                      </button>
+                    </div>
+
+                    {botType === 'grid' ? (
+                    <>
                     <div className="space-y-1.5">
                       <Label className="text-xs">Side</Label>
                       <Select value={gridSide} onValueChange={(v) => setGridSide(v as 'BUY' | 'SELL')}>
@@ -1829,6 +1856,15 @@ export default function TradePage({ type }: TradePageProps) {
                       )}
                       Deploy Grid Bot
                     </Button>
+                    </>
+                    ) : (
+                    <>
+                      {/* PMM Bot Form */}
+                      <div className="flex items-center justify-center h-32 text-muted-foreground text-sm">
+                        PMM bot configuration coming soon
+                      </div>
+                    </>
+                    )}
                   </TabsContent>
                 </Tabs>
                   </>

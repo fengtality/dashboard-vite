@@ -98,6 +98,7 @@ export default function TradePage({ type }: TradePageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [balances, setBalances] = useState<PortfolioBalance[]>([]);
+  const [refreshingBalances, setRefreshingBalances] = useState(false);
   const [activeOrders, setActiveOrders] = useState<PaginatedResponse | null>(null);
   const [positions, setPositions] = useState<PaginatedResponse | null>(null);
   const [trades, setTrades] = useState<PaginatedResponse | null>(null);
@@ -667,6 +668,24 @@ export default function TradePage({ type }: TradePageProps) {
     }
   }, [currentPrice, selectedPair]);
 
+  // Refresh balances
+  async function refreshBalances() {
+    if (!account || !selectedConnector) return;
+    setRefreshingBalances(true);
+    try {
+      const state = await portfolio.getState([account], [selectedConnector]);
+      const accountData = state[account];
+      const balanceData = accountData?.[selectedConnector];
+      if (balanceData) {
+        setBalances(balanceData);
+      }
+    } catch (err) {
+      console.error('Failed to refresh balances:', err);
+    } finally {
+      setRefreshingBalances(false);
+    }
+  }
+
   // Place a trade order
   async function handlePlaceOrder(side: 'BUY' | 'SELL') {
     if (!selectedConnector || !selectedPair || !account) {
@@ -702,12 +721,13 @@ export default function TradePage({ type }: TradePageProps) {
       const response = await trading.placeOrder(orderRequest);
       toast.success(`${side} order placed successfully (ID: ${response.order_id})`);
 
-      // Refresh active orders
+      // Refresh active orders and balances
       const ordersResult = await trading.getActiveOrders({
         account_names: [account],
         connector_names: [selectedConnector],
       });
       setActiveOrders(ordersResult);
+      refreshBalances();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to place order');
     } finally {
@@ -1610,7 +1630,7 @@ export default function TradePage({ type }: TradePageProps) {
                       return (
                         <div className="space-y-3">
                           <div className="space-y-1.5">
-                            <Label className="text-xs">Amount</Label>
+                            <Label className="text-xs">{isPerp ? `Amount (${leverage}x leverage)` : 'Amount'}</Label>
                             <div className="flex items-center border border-border rounded-md h-9">
                               <Input
                                 type="text"
@@ -1812,7 +1832,7 @@ export default function TradePage({ type }: TradePageProps) {
               value="trades"
               className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
-              Trades
+              Trades ({trades?.data.length ?? 0})
             </TabsTrigger>
             {isPerp && (
               <TabsTrigger
@@ -1826,6 +1846,17 @@ export default function TradePage({ type }: TradePageProps) {
 
           {/* Balances Tab */}
           <TabsContent value="balances">
+            <div className="flex justify-end mb-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={refreshBalances}
+                disabled={refreshingBalances}
+                className="h-7 px-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${refreshingBalances ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
             {balances.length === 0 ? (
               <p className="text-muted-foreground text-center py-4">No balances found</p>
             ) : (
@@ -1966,24 +1997,34 @@ export default function TradePage({ type }: TradePageProps) {
                       <th className="text-left py-2 px-3 text-muted-foreground font-medium">Side</th>
                       <th className="text-right py-2 px-3 text-muted-foreground font-medium">Price</th>
                       <th className="text-right py-2 px-3 text-muted-foreground font-medium">Amount</th>
+                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">Fee</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {trades.data.slice(0, 20).map((trade: Record<string, unknown>, i: number) => (
-                      <tr key={i} className="border-b border-border hover:bg-muted/30">
-                        <td className="py-2 px-3 text-muted-foreground">
-                          {trade.timestamp ? new Date(Number(trade.timestamp)).toLocaleString() : '-'}
-                        </td>
-                        <td className="py-2 px-3 font-medium text-foreground">{String(trade.trading_pair || trade.symbol || '-')}</td>
-                        <td className="py-2 px-3">
-                          <Badge variant={String(trade.side).toLowerCase() === 'buy' ? 'default' : 'secondary'}>
-                            {String(trade.side || '-')}
-                          </Badge>
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono">{Number(trade.price || 0).toFixed(4)}</td>
-                        <td className="py-2 px-3 text-right font-mono">{Number(trade.amount || trade.quantity || 0).toFixed(4)}</td>
-                      </tr>
-                    ))}
+                    {trades.data.slice(0, 20).map((trade: Record<string, unknown>, i: number) => {
+                      const tradeType = String(trade.trade_type || trade.side || '-');
+                      const isBuy = tradeType.toUpperCase() === 'BUY';
+                      const feePaid = Number(trade.fee_paid || 0);
+                      const feeCurrency = String(trade.fee_currency || '');
+                      return (
+                        <tr key={String(trade.trade_id) || i} className="border-b border-border hover:bg-muted/30">
+                          <td className="py-2 px-3 text-muted-foreground">
+                            {trade.timestamp ? new Date(String(trade.timestamp)).toLocaleString() : '-'}
+                          </td>
+                          <td className="py-2 px-3 font-medium text-foreground">{String(trade.trading_pair || trade.symbol || '-')}</td>
+                          <td className="py-2 px-3">
+                            <Badge variant={isBuy ? 'default' : 'secondary'} className={isBuy ? 'bg-green-500' : 'bg-red-500'}>
+                              {tradeType}
+                            </Badge>
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono">{Number(trade.price || 0).toFixed(4)}</td>
+                          <td className="py-2 px-3 text-right font-mono">{Number(trade.amount || trade.quantity || 0).toFixed(6)}</td>
+                          <td className="py-2 px-3 text-right font-mono text-muted-foreground">
+                            {feePaid > 0 ? `${feePaid.toFixed(6)} ${feeCurrency}` : '-'}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

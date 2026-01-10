@@ -150,17 +150,11 @@ export default function BotsPage() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Bots</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage your trading bots
-          </p>
-        </div>
-        <Button onClick={() => navigate('/bots/deploy')}>
-          <Rocket size={16} className="mr-2" />
-          Deploy Bot
-        </Button>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-foreground">Bots</h1>
+        <p className="text-muted-foreground mt-1">
+          Manage your trading bots
+        </p>
       </div>
 
       <Tabs defaultValue="active">

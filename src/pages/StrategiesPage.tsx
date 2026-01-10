@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { controllers, scripts } from '@/api/client';
 import type { ControllerConfig, ScriptConfig } from '@/api/client';
@@ -10,8 +10,8 @@ import {
   Rocket,
   Trash2,
   ChevronDown,
+  Upload,
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -80,6 +80,7 @@ function formatType(typeStr: string | undefined | null): string {
 
 export default function StrategiesPage() {
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [controllerTypes, setControllerTypes] = useState<Record<string, string[]>>({});
   const [scriptsList, setScriptsList] = useState<string[]>([]);
   const [selectedType, setSelectedType] = useState<string>('');
@@ -95,6 +96,7 @@ export default function StrategiesPage() {
   const [expandedConfig, setExpandedConfig] = useState<string | null>(null);
   const [configDetails, setConfigDetails] = useState<Record<string, unknown> | null>(null);
   const [loadingConfigDetails, setLoadingConfigDetails] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const isScriptType = selectedType === 'script';
   const allTypes = [...Object.keys(controllerTypes), 'script'];
@@ -128,10 +130,12 @@ export default function StrategiesPage() {
         setScriptsList(scriptsListData);
         setScriptConfigs(scriptConfigsData);
 
-        // Default to generic type
+        // Default to generic type and grid_strike strategy
         if (typesData['generic']) {
           setSelectedType('generic');
-          if (typesData['generic'].length > 0) {
+          if (typesData['generic'].includes('grid_strike')) {
+            setSelectedStrategy('grid_strike');
+          } else if (typesData['generic'].length > 0) {
             setSelectedStrategy(typesData['generic'][0]);
           }
         }
@@ -230,6 +234,68 @@ export default function StrategiesPage() {
     navigate(`/bots/deploy?type=${typeParam}&strategy=${encodeURIComponent(selectedStrategy)}&config=${encodeURIComponent(configId)}`);
   }
 
+  async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Reset input so same file can be uploaded again
+    event.target.value = '';
+
+    // Extract config name from filename (without extension)
+    const configName = file.name.replace(/\.(json|yaml|yml)$/i, '');
+
+    setUploading(true);
+    try {
+      const content = await file.text();
+      let configData: Record<string, unknown>;
+
+      // Parse JSON or YAML
+      if (file.name.endsWith('.json')) {
+        configData = JSON.parse(content);
+      } else if (file.name.endsWith('.yaml') || file.name.endsWith('.yml')) {
+        // Simple YAML parsing - for complex YAML, would need a library
+        // For now, assume JSON-compatible YAML
+        configData = JSON.parse(content);
+      } else {
+        throw new Error('Unsupported file format. Please use .json or .yaml files.');
+      }
+
+      // Set the config id from filename
+      configData.id = configName;
+
+      // Validate required fields based on type
+      if (isScriptType) {
+        if (!configData.script_name) {
+          configData.script_name = selectedStrategy;
+        }
+        // Save script config
+        await scripts.createOrUpdateConfig(configName, configData);
+        // Refresh configs
+        const updatedConfigs = await scripts.listConfigs();
+        setScriptConfigs(updatedConfigs);
+      } else {
+        // Set controller metadata if not present
+        if (!configData.controller_name) {
+          configData.controller_name = selectedStrategy;
+        }
+        if (!configData.controller_type) {
+          configData.controller_type = selectedType;
+        }
+        // Save controller config
+        await controllers.createOrUpdateConfig(configName, configData);
+        // Refresh configs
+        const updatedConfigs = await controllers.listConfigs();
+        setConfigs(updatedConfigs);
+      }
+
+      toast.success(`Config "${configName}" uploaded successfully`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to upload config');
+    } finally {
+      setUploading(false);
+    }
+  }
+
   function openDeleteDialog(configId: string) {
     setConfigToDelete(configId);
     setDeleteDialogOpen(true);
@@ -277,231 +343,240 @@ export default function StrategiesPage() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Strategies</h1>
-        <p className="text-muted-foreground mt-1">
-          Configure and deploy trading strategies
-        </p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Strategies</h1>
+          <p className="text-muted-foreground mt-1">
+            Configure and deploy trading strategies
+          </p>
+        </div>
       </div>
 
       {/* Strategy Selector */}
-      <Card className="mb-6">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Select Strategy</CardTitle>
-          <CardDescription>
-            Choose a strategy type and name to view its configurations
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="select-type">Strategy Type</Label>
-              <Select value={selectedType} onValueChange={setSelectedType}>
-                <SelectTrigger id="select-type">
-                  <SelectValue placeholder="Select type..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {allTypes.map((type) => (
-                    <SelectItem key={type} value={type}>
-                      {type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="select-strategy">Strategy</Label>
-              <Select value={selectedStrategy} onValueChange={setSelectedStrategy}>
-                <SelectTrigger id="select-strategy">
-                  <SelectValue placeholder="Select strategy..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {strategiesForType.map((strategy) => (
-                    <SelectItem key={strategy} value={strategy}>
-                      {strategy}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+      <div className="pb-4 mb-4 border-b border-border">
+        <div className="flex items-center gap-4">
+          <div className="w-48">
+            <Label htmlFor="select-type" className="text-xs text-muted-foreground mb-1.5 block">Strategy Type</Label>
+            <Select value={selectedType} onValueChange={setSelectedType}>
+              <SelectTrigger id="select-type">
+                <SelectValue placeholder="Select type..." />
+              </SelectTrigger>
+              <SelectContent>
+                {allTypes.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-        </CardContent>
-      </Card>
+          <div className="w-56">
+            <Label htmlFor="select-strategy" className="text-xs text-muted-foreground mb-1.5 block">Strategy</Label>
+            <Select value={selectedStrategy} onValueChange={setSelectedStrategy}>
+              <SelectTrigger id="select-strategy">
+                <SelectValue placeholder="Select strategy..." />
+              </SelectTrigger>
+              <SelectContent>
+                {strategiesForType.map((strategy) => (
+                  <SelectItem key={strategy} value={strategy}>
+                    {strategy}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      </div>
 
       {/* Selected Strategy Details */}
       {selectedStrategy && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-primary/10">
-                  <Zap size={20} className="text-primary" />
-                </div>
-                <div>
-                  <CardTitle className="text-lg">{formatStrategyName(selectedStrategy)}</CardTitle>
-                  <CardDescription className="mt-1">
-                    {selectedType}
-                  </CardDescription>
-                </div>
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Zap size={20} className="text-primary" />
               </div>
+              <div>
+                <h2 className="text-lg font-semibold">{formatStrategyName(selectedStrategy)}</h2>
+                <p className="text-sm text-muted-foreground">{selectedType}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json,.yaml,.yml"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <Loader2 size={16} className="mr-1 animate-spin" />
+                ) : (
+                  <Upload size={16} className="mr-1" />
+                )}
+                Upload
+              </Button>
               <Button onClick={handleCreateConfig}>
                 <Plus size={16} className="mr-1" />
                 New Config
               </Button>
             </div>
-          </CardHeader>
+          </div>
 
-          <CardContent>
-            <div className="grid grid-cols-2 gap-6">
-              {/* Parameters Table */}
-              <div>
-                <div className="text-sm font-medium text-muted-foreground mb-3">
-                  Parameters
-                </div>
-                {loadingTemplate ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="animate-spin text-muted-foreground" size={20} />
-                  </div>
-                ) : templateParams.length === 0 ? (
-                  <div className="text-sm text-muted-foreground py-4 text-center border border-dashed rounded-lg">
-                    No parameters available
-                  </div>
-                ) : (
-                  <div className="rounded-lg overflow-hidden border border-border/50">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="border-b border-border/50 hover:bg-transparent">
-                          <TableHead className="text-xs">Parameter</TableHead>
-                          <TableHead className="text-xs">Type</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {templateParams.map(([key, param]) => (
-                          <TableRow key={key} className="border-b border-border/50 last:border-0">
-                            <TableCell className="font-mono text-xs py-2">{key}</TableCell>
-                            <TableCell className="text-xs py-2 text-muted-foreground">
-                              {formatType(param.type)}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
+          <div className="grid grid-cols-2 gap-6">
+            {/* Parameters Table */}
+            <div>
+              <div className="text-sm font-medium text-muted-foreground mb-3">
+                Parameters
               </div>
-
-              {/* Configs List */}
-              <div>
-                <div className="text-sm font-medium text-muted-foreground mb-3">
-                  Saved Configurations ({filteredConfigs.length})
+              {loadingTemplate ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="animate-spin text-muted-foreground" size={20} />
                 </div>
-                {filteredConfigs.length === 0 ? (
-                  <div className="text-sm text-muted-foreground py-4 text-center border border-dashed rounded-lg">
-                    No saved configurations
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {filteredConfigs.map((config) => (
-                      <Collapsible.Root
-                        key={config.id}
-                        open={expandedConfig === config.id}
-                        onOpenChange={() => handleExpandConfig(config.id)}
-                      >
-                        <div className="border border-border/50 rounded-lg overflow-hidden">
-                          <Collapsible.Trigger asChild>
-                            <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-accent/50 transition-colors">
-                              <div className="flex items-center gap-2">
-                                <Settings size={14} className="text-muted-foreground" />
-                                <span className="font-medium text-sm">{config.id}</span>
-                                {typeof config.trading_pair === 'string' && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    {config.trading_pair}
-                                  </Badge>
-                                )}
-                              </div>
-                              <ChevronDown
-                                size={16}
-                                className={cn(
-                                  'text-muted-foreground transition-transform duration-200',
-                                  expandedConfig === config.id && 'rotate-180'
-                                )}
-                              />
-                            </div>
-                          </Collapsible.Trigger>
-                          <Collapsible.Content>
-                            <div className="border-t border-border/50 bg-muted/30 p-3">
-                              {loadingConfigDetails ? (
-                                <div className="flex items-center justify-center py-4">
-                                  <Loader2 className="animate-spin text-muted-foreground" size={16} />
-                                </div>
-                              ) : configDetails ? (
-                                <>
-                                  <div className="bg-background rounded-lg p-3 font-mono text-xs space-y-1 max-h-48 overflow-auto mb-3">
-                                    {(() => {
-                                      // Sort config entries by template key order
-                                      const templateKeys = template ? Object.keys(template) : [];
-                                      const entries = Object.entries(configDetails);
-                                      const sortedEntries = entries.sort((a, b) => {
-                                        const aIndex = templateKeys.indexOf(a[0]);
-                                        const bIndex = templateKeys.indexOf(b[0]);
-                                        // Keys in template come first, in template order
-                                        if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-                                        if (aIndex !== -1) return -1;
-                                        if (bIndex !== -1) return 1;
-                                        return 0; // Keep original order for keys not in template
-                                      });
-                                      return sortedEntries.map(([key, value]) => (
-                                        <div key={key}>
-                                          <span className="text-muted-foreground">{key}:</span>{' '}
-                                          <span className="text-foreground">
-                                            {value === null ? 'null' : typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                                          </span>
-                                        </div>
-                                      ));
-                                    })()}
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Button
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleEditConfig(config.id)}
-                                    >
-                                      Edit
-                                    </Button>
-                                    <Button
-                                      variant="default"
-                                      size="sm"
-                                      onClick={() => handleDeploy(config.id)}
-                                    >
-                                      <Rocket size={14} className="mr-1" />
-                                      Deploy
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => openDeleteDialog(config.id)}
-                                      className="text-destructive hover:text-destructive ml-auto"
-                                    >
-                                      <Trash2 size={14} />
-                                    </Button>
-                                  </div>
-                                </>
-                              ) : (
-                                <div className="text-sm text-muted-foreground text-center py-2">
-                                  Failed to load config details
-                                </div>
+              ) : templateParams.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-4 text-center border border-dashed rounded-lg">
+                  No parameters available
+                </div>
+              ) : (
+                <div className="rounded-lg overflow-hidden border border-border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="border-b border-border hover:bg-transparent">
+                        <TableHead className="text-xs">Parameter</TableHead>
+                        <TableHead className="text-xs">Type</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {templateParams.map(([key, param]) => (
+                        <TableRow key={key} className="border-b border-border last:border-0">
+                          <TableCell className="font-mono text-xs py-2">{key}</TableCell>
+                          <TableCell className="text-xs py-2 text-muted-foreground">
+                            {formatType(param.type)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </div>
+
+            {/* Configs List */}
+            <div>
+              <div className="text-sm font-medium text-muted-foreground mb-3">
+                Saved Configurations ({filteredConfigs.length})
+              </div>
+              {filteredConfigs.length === 0 ? (
+                <div className="text-sm text-muted-foreground py-4 text-center border border-dashed rounded-lg">
+                  No saved configurations
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredConfigs.map((config) => (
+                    <Collapsible.Root
+                      key={config.id}
+                      open={expandedConfig === config.id}
+                      onOpenChange={() => handleExpandConfig(config.id)}
+                    >
+                      <div className="border border-border rounded-lg overflow-hidden">
+                        <Collapsible.Trigger asChild>
+                          <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-accent/50 transition-colors">
+                            <div className="flex items-center gap-2">
+                              <Settings size={14} className="text-muted-foreground" />
+                              <span className="font-medium text-sm">{config.id}</span>
+                              {typeof config.trading_pair === 'string' && (
+                                <Badge variant="secondary" className="text-xs">
+                                  {config.trading_pair}
+                                </Badge>
                               )}
                             </div>
-                          </Collapsible.Content>
-                        </div>
-                      </Collapsible.Root>
-                    ))}
-                  </div>
-                )}
-              </div>
+                            <ChevronDown
+                              size={16}
+                              className={cn(
+                                'text-muted-foreground transition-transform duration-200',
+                                expandedConfig === config.id && 'rotate-180'
+                              )}
+                            />
+                          </div>
+                        </Collapsible.Trigger>
+                        <Collapsible.Content>
+                          <div className="border-t border-border bg-muted/30 p-3">
+                            {loadingConfigDetails ? (
+                              <div className="flex items-center justify-center py-4">
+                                <Loader2 className="animate-spin text-muted-foreground" size={16} />
+                              </div>
+                            ) : configDetails ? (
+                              <>
+                                <div className="bg-background rounded-lg p-3 font-mono text-xs space-y-1 max-h-48 overflow-auto mb-3">
+                                  {(() => {
+                                    // Sort config entries by template key order
+                                    const templateKeys = template ? Object.keys(template) : [];
+                                    const entries = Object.entries(configDetails);
+                                    const sortedEntries = entries.sort((a, b) => {
+                                      const aIndex = templateKeys.indexOf(a[0]);
+                                      const bIndex = templateKeys.indexOf(b[0]);
+                                      // Keys in template come first, in template order
+                                      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+                                      if (aIndex !== -1) return -1;
+                                      if (bIndex !== -1) return 1;
+                                      return 0; // Keep original order for keys not in template
+                                    });
+                                    return sortedEntries.map(([key, value]) => (
+                                      <div key={key}>
+                                        <span className="text-muted-foreground">{key}:</span>{' '}
+                                        <span className="text-foreground">
+                                          {value === null ? 'null' : typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                                        </span>
+                                      </div>
+                                    ));
+                                  })()}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleEditConfig(config.id)}
+                                  >
+                                    Edit
+                                  </Button>
+                                  <Button
+                                    variant="default"
+                                    size="sm"
+                                    onClick={() => handleDeploy(config.id)}
+                                  >
+                                    <Rocket size={14} className="mr-1" />
+                                    Deploy
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => openDeleteDialog(config.id)}
+                                    className="text-destructive hover:text-destructive ml-auto"
+                                  >
+                                    <Trash2 size={14} />
+                                  </Button>
+                                </div>
+                              </>
+                            ) : (
+                              <div className="text-sm text-muted-foreground text-center py-2">
+                                Failed to load config details
+                              </div>
+                            )}
+                          </div>
+                        </Collapsible.Content>
+                      </div>
+                    </Collapsible.Root>
+                  ))}
+                </div>
+              )}
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Delete Confirmation Dialog */}

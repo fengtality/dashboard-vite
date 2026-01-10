@@ -148,8 +148,15 @@ export default function TradePage({ type }: TradePageProps) {
   // Actions panel state
   const [actionTab, setActionTab] = useState<'trade' | 'grid'>('trade');
 
-  // Leverage state (shared between trade and grid)
-  const [leverage, setLeverage] = useState<number>(5);
+  // Leverage state (shared between trade and grid, persisted for session)
+  const [leverage, setLeverageState] = useState<number>(() => {
+    const stored = sessionStorage.getItem('perp-leverage');
+    return stored ? parseInt(stored, 10) : 5;
+  });
+  const setLeverage = (value: number) => {
+    setLeverageState(value);
+    sessionStorage.setItem('perp-leverage', String(value));
+  };
 
   // Position mode state (perp only)
   const [positionMode, setPositionMode] = useState<'ONEWAY' | 'HEDGE'>('ONEWAY');
@@ -157,8 +164,10 @@ export default function TradePage({ type }: TradePageProps) {
   const [settingLeverage, setSettingLeverage] = useState(false);
 
   // Trade form state
-  const [tradeType, setTradeType] = useState<'limit' | 'market'>('limit');
-  const [tradeAmount, setTradeAmount] = useState<string>('100');
+  const [tradeType, setTradeType] = useState<'limit' | 'market'>('market');
+  const [tradeSide, setTradeSide] = useState<'BUY' | 'SELL'>('BUY');
+  const [tradeAmount, setTradeAmount] = useState<string>('');
+  const [sliderPercent, setSliderPercent] = useState<number>(0);
   const [tradePrice, setTradePrice] = useState<string>('');
 
   // Grid Bot form state
@@ -524,21 +533,21 @@ export default function TradePage({ type }: TradePageProps) {
     }
   }
 
-  // Set initial leverage when trading pair is selected (perp only)
+  // Set leverage on exchange when trading pair is selected (perp only)
   useEffect(() => {
     if (!selectedConnector || !account || !selectedPair || !isPerp) return;
 
-    // Set default leverage of 5x when user lands on a new trading pair
-    async function setInitialLeverage() {
+    // Set leverage on exchange to match session-stored value
+    async function syncLeverageToExchange() {
       try {
-        await trading.setLeverage(account!, selectedConnector!, selectedPair, 5);
-        setLeverage(5);
+        const storedLeverage = parseInt(sessionStorage.getItem('perp-leverage') || '5', 10);
+        await trading.setLeverage(account!, selectedConnector!, selectedPair, storedLeverage);
       } catch (err) {
-        console.error('Failed to set initial leverage:', err);
+        console.error('Failed to set leverage:', err);
       }
     }
 
-    setInitialLeverage();
+    syncLeverageToExchange();
   }, [selectedConnector, selectedPair, account, isPerp]);
 
   // Update funding countdown every second
@@ -1464,20 +1473,87 @@ export default function TradePage({ type }: TradePageProps) {
                   </TabsList>
 
                   {/* Trade Tab */}
-                  <TabsContent value="trade" className="space-y-3 mt-0">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Order Type</Label>
-                      <Select value={tradeType} onValueChange={(v) => setTradeType(v as 'limit' | 'market')}>
-                        <SelectTrigger className="h-8 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="limit">Limit</SelectItem>
-                          <SelectItem value="market">Market</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  <TabsContent value="trade" className="space-y-4 mt-0">
+                    {/* Market/Limit Tabs */}
+                    <div className="flex border-b border-border">
+                      <button
+                        className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${
+                          tradeType === 'market'
+                            ? 'border-primary text-foreground'
+                            : 'border-transparent text-muted-foreground hover:text-foreground'
+                        }`}
+                        onClick={() => setTradeType('market')}
+                      >
+                        Market
+                      </button>
+                      <button
+                        className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${
+                          tradeType === 'limit'
+                            ? 'border-primary text-foreground'
+                            : 'border-transparent text-muted-foreground hover:text-foreground'
+                        }`}
+                        onClick={() => setTradeType('limit')}
+                      >
+                        Limit
+                      </button>
                     </div>
 
+                    {/* Buy/Sell Buttons */}
+                    <div className="flex gap-1 p-1 bg-muted rounded-lg">
+                      <button
+                        className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
+                          tradeSide === 'BUY'
+                            ? 'bg-green-500 text-white'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                        onClick={() => setTradeSide('BUY')}
+                      >
+                        Buy
+                      </button>
+                      <button
+                        className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
+                          tradeSide === 'SELL'
+                            ? 'bg-red-500 text-white'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                        onClick={() => setTradeSide('SELL')}
+                      >
+                        Sell
+                      </button>
+                    </div>
+
+                    {/* Available Balance */}
+                    {(() => {
+                      const [base, quote] = selectedPair ? selectedPair.split('-') : ['', ''];
+                      const baseBalance = balances.find(b => b.token === base)?.available_units ?? 0;
+                      const quoteBalance = balances.find(b => b.token === quote)?.available_units ?? 0;
+
+                      // For perp: always show quote (with leverage)
+                      // For spot: show quote for buy, base for sell
+                      let relevantAsset: string;
+                      let displayBalance: number;
+                      if (isPerp) {
+                        relevantAsset = quote;
+                        displayBalance = quoteBalance * leverage;
+                      } else if (tradeSide === 'BUY') {
+                        relevantAsset = quote;
+                        displayBalance = quoteBalance;
+                      } else {
+                        relevantAsset = base;
+                        displayBalance = baseBalance;
+                      }
+
+                      return (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Available to Trade</span>
+                          <span>
+                            {displayBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })} {relevantAsset}
+                          </span>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Price (for Limit orders) */}
                     {tradeType === 'limit' && (
                       <div className="space-y-1.5">
                         <Label className="text-xs">Price</Label>
@@ -1486,40 +1562,101 @@ export default function TradePage({ type }: TradePageProps) {
                           value={tradePrice}
                           onChange={(e) => setTradePrice(e.target.value)}
                           placeholder="0.00"
-                          className="h-8 text-sm"
+                          className="h-9 text-sm"
                         />
                       </div>
                     )}
 
-                    <div className="space-y-1.5">
-                      <Label className="text-xs">Amount (USD)</Label>
-                      <Input
-                        type="text"
-                        value={tradeAmount}
-                        onChange={(e) => setTradeAmount(e.target.value)}
-                        placeholder="100"
-                        className="h-8 text-sm"
-                      />
-                    </div>
+                    {/* Amount Input */}
+                    {(() => {
+                      const [base, quote] = selectedPair ? selectedPair.split('-') : ['', ''];
+                      const baseBalance = balances.find(b => b.token === base)?.available_units ?? 0;
+                      const quoteBalance = balances.find(b => b.token === quote)?.available_units ?? 0;
+                      const price = currentPrice || 1;
 
-                    <div className="flex gap-2 pt-2">
-                      <Button
-                        className="flex-1 bg-green-600 hover:bg-green-700"
-                        disabled={!selectedPair || placingOrder}
-                        size="sm"
-                        onClick={() => handlePlaceOrder('BUY')}
-                      >
-                        {placingOrder ? <Loader2 className="animate-spin" size={14} /> : 'Buy'}
-                      </Button>
-                      <Button
-                        className="flex-1 bg-red-600 hover:bg-red-700"
-                        disabled={!selectedPair || placingOrder}
-                        size="sm"
-                        onClick={() => handlePlaceOrder('SELL')}
-                      >
-                        {placingOrder ? <Loader2 className="animate-spin" size={14} /> : 'Sell'}
-                      </Button>
-                    </div>
+                      // Calculate max base amount based on side
+                      // For perp: both buy and sell use quote balance (settled in quote)
+                      // For spot: buy uses quote, sell uses base
+                      let maxBaseAmount: number;
+                      if (isPerp) {
+                        // Perp: use quote balance for both sides, apply leverage
+                        maxBaseAmount = (quoteBalance / price) * leverage;
+                      } else if (tradeSide === 'BUY') {
+                        maxBaseAmount = quoteBalance / price;
+                      } else {
+                        maxBaseAmount = baseBalance;
+                      }
+
+                      const handleSliderChange = (value: number[]) => {
+                        const percent = value[0];
+                        setSliderPercent(percent);
+                        if (maxBaseAmount > 0) {
+                          const amount = (maxBaseAmount * percent / 100);
+                          setTradeAmount(amount > 0 ? amount.toFixed(6) : '');
+                        }
+                      };
+
+                      const handleAmountChange = (value: string) => {
+                        setTradeAmount(value);
+                        const numValue = parseFloat(value);
+                        if (!isNaN(numValue) && maxBaseAmount > 0) {
+                          const percent = Math.min(100, Math.max(0, (numValue / maxBaseAmount) * 100));
+                          setSliderPercent(Math.round(percent));
+                        } else {
+                          setSliderPercent(0);
+                        }
+                      };
+
+                      return (
+                        <div className="space-y-3">
+                          <div className="space-y-1.5">
+                            <Label className="text-xs">Amount</Label>
+                            <div className="flex items-center border border-border rounded-md h-9">
+                              <Input
+                                type="text"
+                                value={tradeAmount}
+                                onChange={(e) => handleAmountChange(e.target.value)}
+                                placeholder="0.00"
+                                className="h-full text-sm border-0 focus-visible:ring-0"
+                              />
+                              <span className="text-sm text-muted-foreground pr-3">{base}</span>
+                            </div>
+                          </div>
+
+                          {/* Slider */}
+                          <div className="flex items-center gap-3">
+                            <Slider
+                              value={[sliderPercent]}
+                              onValueChange={handleSliderChange}
+                              max={100}
+                              step={1}
+                              className="flex-1"
+                            />
+                            <div className="flex items-center gap-1 bg-muted rounded px-2 py-1 min-w-[60px] justify-center">
+                              <span className="text-sm">{sliderPercent}</span>
+                              <span className="text-xs text-muted-foreground">%</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Submit Button */}
+                    <Button
+                      className={`w-full ${
+                        tradeSide === 'BUY'
+                          ? 'bg-green-500 hover:bg-green-600'
+                          : 'bg-red-500 hover:bg-red-600'
+                      }`}
+                      disabled={!selectedPair || placingOrder || !tradeAmount}
+                      onClick={() => handlePlaceOrder(tradeSide)}
+                    >
+                      {placingOrder ? (
+                        <Loader2 className="animate-spin" size={14} />
+                      ) : (
+                        `${tradeSide === 'BUY' ? 'Buy' : 'Sell'} ${selectedPair?.split('-')[0] || ''}`
+                      )}
+                    </Button>
                   </TabsContent>
 
                   {/* Grid Bot Tab */}

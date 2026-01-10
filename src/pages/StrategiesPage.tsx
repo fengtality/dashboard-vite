@@ -437,14 +437,28 @@ export default function StrategiesPage() {
                               ) : configDetails ? (
                                 <>
                                   <div className="bg-background rounded-lg p-3 font-mono text-xs space-y-1 max-h-48 overflow-auto mb-3">
-                                    {Object.entries(configDetails).map(([key, value]) => (
-                                      <div key={key}>
-                                        <span className="text-muted-foreground">{key}:</span>{' '}
-                                        <span className="text-foreground">
-                                          {value === null ? 'null' : typeof value === 'object' ? JSON.stringify(value) : String(value)}
-                                        </span>
-                                      </div>
-                                    ))}
+                                    {(() => {
+                                      // Sort config entries by template key order
+                                      const templateKeys = template ? Object.keys(template) : [];
+                                      const entries = Object.entries(configDetails);
+                                      const sortedEntries = entries.sort((a, b) => {
+                                        const aIndex = templateKeys.indexOf(a[0]);
+                                        const bIndex = templateKeys.indexOf(b[0]);
+                                        // Keys in template come first, in template order
+                                        if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+                                        if (aIndex !== -1) return -1;
+                                        if (bIndex !== -1) return 1;
+                                        return 0; // Keep original order for keys not in template
+                                      });
+                                      return sortedEntries.map(([key, value]) => (
+                                        <div key={key}>
+                                          <span className="text-muted-foreground">{key}:</span>{' '}
+                                          <span className="text-foreground">
+                                            {value === null ? 'null' : typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                                          </span>
+                                        </div>
+                                      ));
+                                    })()}
                                   </div>
                                   <div className="flex items-center gap-2">
                                     <Button

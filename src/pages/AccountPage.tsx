@@ -13,7 +13,7 @@ import { config } from '@/config';
 import { generateTelegramDeepLink, generateServerName } from '@/lib/deeplink';
 import { useAccount } from '@/components/account-provider';
 import { cn } from '@/lib/utils';
-import { Send, Server, Loader2, User, HelpCircle } from 'lucide-react';
+import { Send, Server, Loader2, User, HelpCircle, Star, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 // Field label with hover card for help text
@@ -37,15 +37,42 @@ const PUBLIC_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'condo
 
 const sections = [
   { id: 'account', label: 'Account', icon: User },
+  { id: 'favorites', label: 'Favorites', icon: Star },
   { id: 'api-server', label: 'API Server', icon: Server },
   { id: 'telegram', label: 'Telegram Bot', icon: Send },
 ];
+
+// Helper to format connector name for display
+function formatConnectorName(name: string): string {
+  const isTestnet = name.endsWith('_testnet') || name.endsWith('_perpetual_testnet');
+
+  let displayName = name
+    .replace(/_perpetual_testnet$/, '')
+    .replace(/_perpetual$/, '')
+    .replace(/_testnet$/, '');
+
+  displayName = displayName
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
+  if (isTestnet) {
+    displayName += ' Testnet';
+  }
+
+  return displayName;
+}
+
+// Helper to check if connector is perpetual
+function isPerpetualConnector(name: string): boolean {
+  return name.endsWith('_perpetual') || name.endsWith('_perpetual_testnet');
+}
 
 export default function AccountPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeSection = searchParams.get('section') || 'account';
 
-  const { account, setAccount, accountsList, timezone, setTimezone } = useAccount();
+  const { account, setAccount, accountsList, timezone, setTimezone, favorites, removeFavorite } = useAccount();
 
   // Common timezones for the selector
   const timezones = [
@@ -173,6 +200,92 @@ export default function AccountPage() {
                 </SelectContent>
               </Select>
             </div>
+          </div>
+        )}
+
+        {activeSection === 'favorites' && (
+          <div>
+            <h2 className="text-xl font-semibold mb-1">Favorite Pairs</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Manage your favorite trading pairs for quick access.
+            </p>
+            {favorites.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No favorites yet. Click the star icon next to a trading pair to add it to your favorites.
+              </p>
+            ) : (
+              <div className="space-y-6">
+                {/* Spot Favorites */}
+                {favorites.filter(f => !isPerpetualConnector(f.connector)).length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-3">Spot</h3>
+                    <div className="space-y-2">
+                      {favorites
+                        .filter(f => !isPerpetualConnector(f.connector))
+                        .map((fav) => (
+                          <div
+                            key={`${fav.connector}-${fav.pair}`}
+                            className="flex items-center justify-between p-3 rounded-lg border border-border bg-card"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="w-8 h-8 rounded-md bg-muted flex items-center justify-center text-sm font-semibold">
+                                {formatConnectorName(fav.connector).charAt(0)}
+                              </span>
+                              <div>
+                                <p className="font-medium">{fav.pair}</p>
+                                <p className="text-xs text-muted-foreground">{formatConnectorName(fav.connector)}</p>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={() => removeFavorite(fav.connector, fav.pair)}
+                            >
+                              <X size={16} />
+                            </Button>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Perp Favorites */}
+                {favorites.filter(f => isPerpetualConnector(f.connector)).length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-3">Perpetual</h3>
+                    <div className="space-y-2">
+                      {favorites
+                        .filter(f => isPerpetualConnector(f.connector))
+                        .map((fav) => (
+                          <div
+                            key={`${fav.connector}-${fav.pair}`}
+                            className="flex items-center justify-between p-3 rounded-lg border border-border bg-card"
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="w-8 h-8 rounded-md bg-muted flex items-center justify-center text-sm font-semibold">
+                                {formatConnectorName(fav.connector).charAt(0)}
+                              </span>
+                              <div>
+                                <p className="font-medium">{fav.pair}</p>
+                                <p className="text-xs text-muted-foreground">{formatConnectorName(fav.connector)}</p>
+                              </div>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={() => removeFavorite(fav.connector, fav.pair)}
+                            >
+                              <X size={16} />
+                            </Button>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

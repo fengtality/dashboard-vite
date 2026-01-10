@@ -6,6 +6,11 @@ function getLocalTimezone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
+export interface FavoritePair {
+  connector: string;
+  pair: string;
+}
+
 interface AccountContextType {
   account: string;
   setAccount: (account: string) => void;
@@ -13,6 +18,10 @@ interface AccountContextType {
   isLoading: boolean;
   timezone: string;
   setTimezone: (tz: string) => void;
+  favorites: FavoritePair[];
+  addFavorite: (connector: string, pair: string) => void;
+  removeFavorite: (connector: string, pair: string) => void;
+  isFavorite: (connector: string, pair: string) => boolean;
 }
 
 const AccountContext = createContext<AccountContextType | undefined>(undefined);
@@ -24,6 +33,10 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const [timezone, setTimezoneState] = useState<string>(() => {
     const stored = localStorage.getItem('hummingbot-timezone');
     return stored || getLocalTimezone();
+  });
+  const [favorites, setFavoritesState] = useState<FavoritePair[]>(() => {
+    const stored = localStorage.getItem('hummingbot-favorites');
+    return stored ? JSON.parse(stored) : [];
   });
 
   useEffect(() => {
@@ -57,8 +70,24 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('hummingbot-timezone', tz);
   }
 
+  function addFavorite(connector: string, pair: string) {
+    const newFavorites = [...favorites, { connector, pair }];
+    setFavoritesState(newFavorites);
+    localStorage.setItem('hummingbot-favorites', JSON.stringify(newFavorites));
+  }
+
+  function removeFavorite(connector: string, pair: string) {
+    const newFavorites = favorites.filter(f => !(f.connector === connector && f.pair === pair));
+    setFavoritesState(newFavorites);
+    localStorage.setItem('hummingbot-favorites', JSON.stringify(newFavorites));
+  }
+
+  function isFavorite(connector: string, pair: string) {
+    return favorites.some(f => f.connector === connector && f.pair === pair);
+  }
+
   return (
-    <AccountContext.Provider value={{ account, setAccount, accountsList, isLoading, timezone, setTimezone }}>
+    <AccountContext.Provider value={{ account, setAccount, accountsList, isLoading, timezone, setTimezone, favorites, addFavorite, removeFavorite, isFavorite }}>
       {children}
     </AccountContext.Provider>
   );

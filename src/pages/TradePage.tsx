@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useAccount } from '@/components/account-provider';
 import { portfolio, trading, connectors, marketData, accounts, controllers } from '@/api/client';
 import type { PortfolioBalance, PaginatedResponse, TradingRule, TradeRequest } from '@/api/client';
-import { Loader2, Grid3X3, Activity, Settings, Rocket, RefreshCw, Info, Key } from 'lucide-react';
+import { Loader2, Grid3X3, Activity, Settings, Rocket, RefreshCw, Info, Key, Star } from 'lucide-react';
 import {
   Empty,
   EmptyHeader,
@@ -50,14 +50,21 @@ function isPerpetualConnector(name: string): boolean {
 
 // Helper to format connector name for display
 function formatConnectorName(name: string): string {
+  const isTestnet = name.endsWith('_testnet') || name.endsWith('_perpetual_testnet');
+
   let displayName = name
     .replace(/_perpetual_testnet$/, '')
-    .replace(/_perpetual$/, '');
+    .replace(/_perpetual$/, '')
+    .replace(/_testnet$/, '');
 
   displayName = displayName
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
+
+  if (isTestnet) {
+    displayName += ' Testnet';
+  }
 
   return displayName;
 }
@@ -81,7 +88,7 @@ const selectionCache: Record<string, { connector: string; pair: string }> = {
 
 export default function TradePage({ type }: TradePageProps) {
   const navigate = useNavigate();
-  const { account, timezone } = useAccount();
+  const { account, timezone, favorites, addFavorite, removeFavorite, isFavorite } = useAccount();
   const isPerp = type === 'perp';
 
   // Selected connector state (cached in memory)
@@ -837,57 +844,37 @@ export default function TradePage({ type }: TradePageProps) {
           />
         </div>
 
-        {/* Trading rules hover card */}
-        {tradingRule && (
-          <HoverCard>
-            <HoverCardTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Info size={16} />
-              </Button>
-            </HoverCardTrigger>
-            <HoverCardContent className="w-72" align="start">
-              <div className="space-y-2">
-                <h4 className="text-sm font-semibold">Trading Rules</h4>
-                <div className="grid grid-cols-2 gap-1 text-xs">
-                  <span className="text-muted-foreground">Min Order Size</span>
-                  <span className="font-mono text-right">{tradingRule.min_order_size}</span>
-                  <span className="text-muted-foreground">Max Order Size</span>
-                  <span className="font-mono text-right">{tradingRule.max_order_size}</span>
-                  <span className="text-muted-foreground">Min Price Increment</span>
-                  <span className="font-mono text-right">{tradingRule.min_price_increment}</span>
-                  <span className="text-muted-foreground">Min Base Increment</span>
-                  <span className="font-mono text-right">{tradingRule.min_base_amount_increment}</span>
-                  <span className="text-muted-foreground">Min Quote Increment</span>
-                  <span className="font-mono text-right">{tradingRule.min_quote_amount_increment}</span>
-                  <span className="text-muted-foreground">Min Notional Size</span>
-                  <span className="font-mono text-right">{tradingRule.min_notional_size}</span>
-                </div>
-              </div>
-            </HoverCardContent>
-          </HoverCard>
-        )}
-
-        {/* Perp funding info - shown next to pair selector */}
-        {isPerp && fundingInfo && (
-          <div className="flex items-center gap-6 text-sm ml-4 border-l pl-4 border-border">
-            <div className="flex flex-col">
-              <span className="text-muted-foreground text-xs">Mark</span>
-              <span className="font-mono">{fundingInfo.mark_price.toLocaleString()}</span>
+        {/* Favorite pairs */}
+        {favorites.filter(f => isPerp ? isPerpetualConnector(f.connector) : !isPerpetualConnector(f.connector)).length > 0 && (
+          <>
+            <div className="w-px h-6 bg-border" />
+            <div className="flex items-center gap-1 overflow-x-auto">
+              {favorites
+                .filter(f => isPerp ? isPerpetualConnector(f.connector) : !isPerpetualConnector(f.connector))
+                .map((fav) => {
+                  const exchangeName = formatConnectorName(fav.connector);
+                  const initial = exchangeName.charAt(0).toUpperCase();
+                  return (
+                    <Button
+                      key={`${fav.connector}-${fav.pair}`}
+                      variant={selectedConnector === fav.connector && selectedPair === fav.pair ? 'default' : 'outline'}
+                      size="sm"
+                      className="h-7 px-2 text-xs whitespace-nowrap"
+                      onClick={() => {
+                        setSelectedConnector(fav.connector);
+                        setSelectedPair(fav.pair);
+                      }}
+                      title={`${exchangeName} - ${fav.pair}`}
+                    >
+                      <span className="w-4 h-4 rounded bg-muted text-muted-foreground flex items-center justify-center text-[10px] font-semibold mr-1.5">
+                        {initial}
+                      </span>
+                      {fav.pair}
+                    </Button>
+                  );
+                })}
             </div>
-            <div className="flex flex-col">
-              <span className="text-muted-foreground text-xs">Oracle</span>
-              <span className="font-mono">{fundingInfo.index_price.toLocaleString()}</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-muted-foreground text-xs">Funding / Countdown</span>
-              <div className="flex items-center gap-2">
-                <span className={`font-mono ${(fundingInfo.funding_rate ?? 0) >= 0 ? 'text-teal-500' : 'text-red-500'}`}>
-                  {((fundingInfo.funding_rate ?? 0) * 100).toFixed(4)}%
-                </span>
-                <span className="font-mono">{fundingCountdown || '--:--:--'}</span>
-              </div>
-            </div>
-          </div>
+          </>
         )}
       </div>
 
@@ -911,18 +898,92 @@ export default function TradePage({ type }: TradePageProps) {
             {/* Chart Panel */}
             <ResizablePanel defaultSize={75} minSize={50}>
               <div className="h-full px-6 py-4 flex flex-col overflow-hidden">
-                {/* Tab Navigation with Pair & Price centered */}
+                {/* Pair Info Header */}
+                {selectedPair && (
+                  <div className="flex items-center gap-4 mb-3">
+                    <button
+                      onClick={() => {
+                        if (isFavorite(selectedConnector, selectedPair)) {
+                          removeFavorite(selectedConnector, selectedPair);
+                        } else {
+                          addFavorite(selectedConnector, selectedPair);
+                        }
+                      }}
+                      className="hover:scale-110 transition-transform"
+                    >
+                      <Star
+                        size={20}
+                        className={isFavorite(selectedConnector, selectedPair) ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground hover:text-yellow-400'}
+                      />
+                    </button>
+                    <span className="text-xl font-semibold">{selectedPair}</span>
+
+                    {/* Trading rules icon */}
+                    {tradingRule && (
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7">
+                            <Info size={14} />
+                          </Button>
+                        </HoverCardTrigger>
+                        <HoverCardContent className="w-72" align="start">
+                          <div className="space-y-2">
+                            <h4 className="text-sm font-semibold">Trading Rules</h4>
+                            <div className="grid grid-cols-2 gap-1 text-xs">
+                              <span className="text-muted-foreground">Min Order Size</span>
+                              <span className="font-mono text-right">{tradingRule.min_order_size}</span>
+                              <span className="text-muted-foreground">Max Order Size</span>
+                              <span className="font-mono text-right">{tradingRule.max_order_size}</span>
+                              <span className="text-muted-foreground">Min Price Increment</span>
+                              <span className="font-mono text-right">{tradingRule.min_price_increment}</span>
+                              <span className="text-muted-foreground">Min Base Increment</span>
+                              <span className="font-mono text-right">{tradingRule.min_base_amount_increment}</span>
+                              <span className="text-muted-foreground">Min Quote Increment</span>
+                              <span className="font-mono text-right">{tradingRule.min_quote_amount_increment}</span>
+                              <span className="text-muted-foreground">Min Notional Size</span>
+                              <span className="font-mono text-right">{tradingRule.min_notional_size}</span>
+                            </div>
+                          </div>
+                        </HoverCardContent>
+                      </HoverCard>
+                    )}
+
+                    {/* Perp funding info */}
+                    {isPerp && fundingInfo && (
+                      <>
+                        <div className="w-px h-6 bg-border" />
+                        <div className="flex items-center gap-6 text-sm">
+                          <div className="flex flex-col">
+                            <span className="text-muted-foreground text-xs">Mark</span>
+                            <span className="font-mono">{fundingInfo.mark_price.toLocaleString()}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-muted-foreground text-xs">Oracle</span>
+                            <span className="font-mono">{fundingInfo.index_price.toLocaleString()}</span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-muted-foreground text-xs">Funding</span>
+                            <span className={`font-mono ${(fundingInfo.funding_rate ?? 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                              {((fundingInfo.funding_rate ?? 0) * 100).toFixed(4)}%
+                            </span>
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="text-muted-foreground text-xs">Countdown</span>
+                            <span className="font-mono">{fundingCountdown || '--:--:--'}</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {/* Tab Navigation */}
                 <Tabs value={chartPanelTab} onValueChange={(v) => setChartPanelTab(v as 'orderbook' | 'chart')} className="flex-1 flex flex-col min-h-0">
                   <div className="flex items-center justify-between mb-3">
                     <TabsList className="bg-background gap-1 border p-1 h-auto">
                       <TabsTrigger value="orderbook" className="text-xs px-3 py-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Order Book</TabsTrigger>
                       <TabsTrigger value="chart" className="text-xs px-3 py-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Chart</TabsTrigger>
                     </TabsList>
-
-                    {/* Centered Pair */}
-                    {selectedPair && (
-                      <span className="text-2xl font-semibold">{selectedPair}</span>
-                    )}
 
                     <div className="flex items-center gap-2">
                       {/* Cumulative toggle and refresh button for order book tab */}

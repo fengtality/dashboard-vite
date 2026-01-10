@@ -73,12 +73,19 @@ interface TradePageProps {
   type: 'spot' | 'perp';
 }
 
+// In-memory cache for selections (persists across navigation)
+const selectionCache: Record<string, { connector: string; pair: string }> = {
+  spot: { connector: '', pair: '' },
+  perp: { connector: '', pair: '' },
+};
+
 export default function TradePage({ type }: TradePageProps) {
   const navigate = useNavigate();
   const { account, timezone } = useAccount();
+  const isPerp = type === 'perp';
 
-  // Selected connector state
-  const [selectedConnector, setSelectedConnector] = useState<string>('');
+  // Selected connector state (cached in memory)
+  const [selectedConnector, setSelectedConnectorState] = useState<string>(selectionCache[type].connector);
 
   // Data state
   const [loading, setLoading] = useState(true);
@@ -88,9 +95,20 @@ export default function TradePage({ type }: TradePageProps) {
   const [positions, setPositions] = useState<PaginatedResponse | null>(null);
   const [trades, setTrades] = useState<PaginatedResponse | null>(null);
 
-  // Trading pair state
+  // Trading pair state (cached in memory)
   const [tradingPairs, setTradingPairs] = useState<string[]>([]);
-  const [selectedPair, setSelectedPair] = useState<string>('');
+  const [selectedPair, setSelectedPairState] = useState<string>(selectionCache[type].pair);
+
+  // Wrapper functions to cache selections
+  const setSelectedConnector = (connector: string) => {
+    setSelectedConnectorState(connector);
+    selectionCache[type].connector = connector;
+  };
+
+  const setSelectedPair = (pair: string) => {
+    setSelectedPairState(pair);
+    selectionCache[type].pair = pair;
+  };
   const [loadingPairs, setLoadingPairs] = useState(false);
   const [tradingRule, setTradingRule] = useState<TradingRule | null>(null);
 
@@ -110,6 +128,7 @@ export default function TradePage({ type }: TradePageProps) {
   const [orderBook, setOrderBook] = useState<{ bids: unknown[]; asks: unknown[] } | null>(null);
   const [loadingOrderBook, setLoadingOrderBook] = useState(false);
   const [orderBookCumulative, setOrderBookCumulative] = useState(true);
+  const [orderBookTableView, setOrderBookTableView] = useState<'both' | 'bids' | 'asks'>('both');
   
   // Funding info state (perp only)
   const [fundingInfo, setFundingInfo] = useState<{ funding_rate: number; next_funding_time: number; mark_price: number; index_price: number } | null>(null);
@@ -148,12 +167,30 @@ export default function TradePage({ type }: TradePageProps) {
   const [placingOrder, setPlacingOrder] = useState(false);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
 
-  const isPerp = type === 'perp';
-
-  // Reset state when switching between spot and perp
+  // Sync state with cache when type changes (component might be reused)
   useEffect(() => {
-    setSelectedConnector('');
-    setSelectedPair('');
+    const cachedConnector = selectionCache[type].connector;
+    const cachedPair = selectionCache[type].pair;
+
+    // Validate cached connector is appropriate for current type
+    if (cachedConnector) {
+      const isValidForType = isPerp ? isPerpetualConnector(cachedConnector) : !isPerpetualConnector(cachedConnector);
+      if (isValidForType) {
+        setSelectedConnectorState(cachedConnector);
+        setSelectedPairState(cachedPair);
+      } else {
+        // Clear invalid cached values
+        setSelectedConnectorState('');
+        setSelectedPairState('');
+        selectionCache[type].connector = '';
+        selectionCache[type].pair = '';
+      }
+    } else {
+      setSelectedConnectorState('');
+      setSelectedPairState(cachedPair);
+    }
+
+    // Reset data state
     setBalances([]);
     setActiveOrders(null);
     setPositions(null);
@@ -161,16 +198,13 @@ export default function TradePage({ type }: TradePageProps) {
     setTradingPairs([]);
     setCandles([]);
     setCurrentPrice(null);
-    setError(null);
-    setChartError(null);
-    setTradePrice('');
-    setGridStartPrice('');
-    setGridEndPrice('');
-    setGridLimitPrice('');
-    setChartPanelTab('orderbook');
     setOrderBook(null);
     setFundingInfo(null);
+    setError(null);
+    setChartError(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [type]);
+
   const priceDecimals = getPriceDecimals(tradingRule?.min_base_amount_increment);
 
   // Fetch all connectors and connected connectors
@@ -230,28 +264,39 @@ export default function TradePage({ type }: TradePageProps) {
 
   // Fetch trading pairs when connector changes
   useEffect(() => {
-    // Clear previous state when connector changes
-    setSelectedPair('');
     setTradingPairs([]);
 
     async function fetchTradingPairs() {
-      if (!selectedConnector) return;
+      if (!selectedConnector) {
+        setSelectedPair('');
+        return;
+      }
 
       setLoadingPairs(true);
       try {
         const rules = await connectors.getAllTradingRules(selectedConnector);
         const pairs = Object.keys(rules).sort();
         setTradingPairs(pairs);
+
+        // Check if current pair is still valid, if not clear it
+        const currentPair = selectionCache[type].pair;
+        if (currentPair && pairs.includes(currentPair)) {
+          setSelectedPairState(currentPair);
+        } else if (!pairs.includes(selectedPair)) {
+          setSelectedPair('');
+        }
       } catch (err) {
         console.error('Failed to fetch trading pairs:', err);
         setTradingPairs([]);
+        setSelectedPair('');
       } finally {
         setLoadingPairs(false);
       }
     }
 
     fetchTradingPairs();
-  }, [selectedConnector]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedConnector, type]);
 
   // Fetch trading rule when pair changes
   useEffect(() => {
@@ -295,7 +340,7 @@ export default function TradePage({ type }: TradePageProps) {
       const obResponse = await marketData.getOrderBook({
         connector_name: selectedConnector,
         trading_pair: selectedPair,
-        depth: 10,
+        depth: 30,
       });
       setOrderBook({
         bids: obResponse.bids || [],
@@ -1080,41 +1125,104 @@ export default function TradePage({ type }: TradePageProps) {
 
                               {/* Right: Order Book Table (Asks above Bids) */}
                               <div className="w-64 flex flex-col text-xs font-mono overflow-auto">
-                                {/* Asks (reversed so lowest ask is at bottom, near spread) */}
-                                <div className="flex-1 flex flex-col justify-end">
-                                  <div className="grid grid-cols-2 text-muted-foreground border-b border-border pb-1 mb-1">
-                                    <span>Price</span>
-                                    <span className="text-right">Size</span>
+                                {/* Header with toggle buttons */}
+                                <div className="flex items-center justify-between pb-2 mb-2 border-b border-border">
+                                  <span className="text-sm font-medium font-sans">Order Book</span>
+                                  <div className="flex rounded-md border border-border overflow-hidden">
+                                    <button
+                                      onClick={() => setOrderBookTableView('both')}
+                                      className={`px-2 py-1 flex items-center gap-0.5 ${orderBookTableView === 'both' ? 'bg-accent' : 'hover:bg-muted'}`}
+                                      title="Show both"
+                                    >
+                                      <div className="w-1.5 h-3 bg-red-500 rounded-sm" />
+                                      <div className="w-1.5 h-3 bg-green-500 rounded-sm" />
+                                    </button>
+                                    <button
+                                      onClick={() => setOrderBookTableView('bids')}
+                                      className={`px-2 py-1 flex items-center gap-0.5 border-l border-border ${orderBookTableView === 'bids' ? 'bg-accent' : 'hover:bg-muted'}`}
+                                      title="Bids only"
+                                    >
+                                      <div className="w-1.5 h-3 bg-muted rounded-sm" />
+                                      <div className="w-1.5 h-3 bg-green-500 rounded-sm" />
+                                    </button>
+                                    <button
+                                      onClick={() => setOrderBookTableView('asks')}
+                                      className={`px-2 py-1 flex items-center gap-0.5 border-l border-border ${orderBookTableView === 'asks' ? 'bg-accent' : 'hover:bg-muted'}`}
+                                      title="Asks only"
+                                    >
+                                      <div className="w-1.5 h-3 bg-red-500 rounded-sm" />
+                                      <div className="w-1.5 h-3 bg-muted rounded-sm" />
+                                    </button>
                                   </div>
-                                  {[...parsedAsks].slice(0, 10).reverse().map((a, i) => (
-                                    <div key={i} className="grid grid-cols-2 py-0.5">
-                                      <span className="text-red-500">{a.price.toFixed(priceDecimals)}</span>
-                                      <span className="text-right">{a.qty.toFixed(4)}</span>
+                                </div>
+
+                                {/* Column headers */}
+                                <div className="grid grid-cols-2 text-muted-foreground border-b border-border pb-1 mb-1">
+                                  <span>Price</span>
+                                  <span className="text-right">Size</span>
+                                </div>
+
+                                {orderBookTableView === 'both' ? (
+                                  <>
+                                    {/* Asks (reversed so lowest ask is at bottom, near spread) */}
+                                    <div className="flex-1 flex flex-col justify-end">
+                                      {[...parsedAsks].slice(0, 15).reverse().map((a, i) => (
+                                        <div key={i} className="grid grid-cols-2 py-0.5">
+                                          <span className="text-red-500">{a.price.toFixed(priceDecimals)}</span>
+                                          <span className="text-right">{a.qty.toFixed(4)}</span>
+                                        </div>
+                                      ))}
                                     </div>
-                                  ))}
-                                </div>
 
-                                {/* Spread / Mid Price */}
-                                <div className="py-2 text-center border-y border-border my-1">
-                                  <span className="text-muted-foreground">Spread: </span>
-                                  <span>{((bestAsk - bestBid) / midPrice * 10000).toFixed(2)} bps</span>
-                                </div>
-
-                                {/* Bids */}
-                                <div className="flex-1">
-                                  {parsedBids.slice(0, 10).map((b, i) => (
-                                    <div key={i} className="grid grid-cols-2 py-0.5">
-                                      <span className="text-green-500">{b.price.toFixed(priceDecimals)}</span>
-                                      <span className="text-right">{b.qty.toFixed(4)}</span>
+                                    {/* Spread / Mid Price */}
+                                    <div className="py-2 text-center border-y border-border my-1">
+                                      <span className="text-muted-foreground">Spread: </span>
+                                      <span>{((bestAsk - bestBid) / midPrice * 10000).toFixed(2)} bps</span>
                                     </div>
-                                  ))}
-                                </div>
 
-                                {/* Totals */}
-                                <div className="border-t border-border pt-1 mt-1 grid grid-cols-2 text-muted-foreground">
-                                  <span className="text-green-500">{totalBids.toFixed(2)}</span>
-                                  <span className="text-right text-red-500">{totalAsks.toFixed(2)}</span>
-                                </div>
+                                    {/* Bids */}
+                                    <div className="flex-1">
+                                      {parsedBids.slice(0, 15).map((b, i) => (
+                                        <div key={i} className="grid grid-cols-2 py-0.5">
+                                          <span className="text-green-500">{b.price.toFixed(priceDecimals)}</span>
+                                          <span className="text-right">{b.qty.toFixed(4)}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </>
+                                ) : orderBookTableView === 'bids' ? (
+                                  <>
+                                    {/* All Bids */}
+                                    <div className="flex-1 overflow-auto">
+                                      {parsedBids.map((b, i) => (
+                                        <div key={i} className="grid grid-cols-2 py-0.5">
+                                          <span className="text-green-500">{b.price.toFixed(priceDecimals)}</span>
+                                          <span className="text-right">{b.qty.toFixed(4)}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    {/* Total */}
+                                    <div className="border-t border-border pt-1 mt-1 text-muted-foreground text-right">
+                                      <span className="text-green-500">Total: {totalBids.toFixed(2)}</span>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <>
+                                    {/* All Asks */}
+                                    <div className="flex-1 overflow-auto">
+                                      {parsedAsks.map((a, i) => (
+                                        <div key={i} className="grid grid-cols-2 py-0.5">
+                                          <span className="text-red-500">{a.price.toFixed(priceDecimals)}</span>
+                                          <span className="text-right">{a.qty.toFixed(4)}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    {/* Total */}
+                                    <div className="border-t border-border pt-1 mt-1 text-muted-foreground text-right">
+                                      <span className="text-red-500">Total: {totalAsks.toFixed(2)}</span>
+                                    </div>
+                                  </>
+                                )}
                               </div>
                             </div>
                           );

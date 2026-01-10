@@ -24,12 +24,29 @@ async function request<T>(
 }
 
 // Connectors Router
+export interface TradingRule {
+  min_order_size: number;
+  max_order_size: number;
+  min_price_increment: number;
+  min_base_amount_increment: number;
+  min_quote_amount_increment: number;
+  min_notional_size: number;
+  min_order_value: number;
+  max_price_significant_digits: number;
+  supports_limit_orders: boolean;
+  supports_market_orders: boolean;
+  buy_order_collateral_token?: string;
+  sell_order_collateral_token?: string;
+}
+
 export const connectors = {
   list: () => request<string[]>('/connectors/'),
   getConfigMap: (connectorName: string) =>
     request<string[]>(`/connectors/${connectorName}/config-map`),
+  getAllTradingRules: (connectorName: string) =>
+    request<Record<string, TradingRule>>(`/connectors/${connectorName}/trading-rules`),
   getTradingRules: (connectorName: string, tradingPair: string) =>
-    request<Record<string, unknown>>(
+    request<Record<string, TradingRule>>(
       `/connectors/${connectorName}/trading-rules?trading_pair=${tradingPair}`
     ),
   getOrderTypes: (connectorName: string) =>
@@ -196,6 +213,14 @@ export interface V2ScriptDeployment {
   headless?: boolean;
 }
 
+export interface StartBotRequest {
+  bot_name: string;
+  log_level?: string;
+  script?: string;
+  conf?: string;
+  async_backend?: boolean;
+}
+
 export const bots = {
   getStatus: () => request<Record<string, BotStatus>>('/bot-orchestration/status'),
   getBotStatus: (botName: string) =>
@@ -204,10 +229,10 @@ export const bots = {
     request<unknown[]>(`/bot-orchestration/${botName}/history`),
   getMqttStatus: () =>
     request<Record<string, unknown>>('/bot-orchestration/mqtt'),
-  startBot: (botName: string) =>
+  startBot: (config: StartBotRequest) =>
     request<unknown>('/bot-orchestration/start-bot', {
       method: 'POST',
-      body: JSON.stringify({ bot_name: botName }),
+      body: JSON.stringify(config),
     }),
   stopBot: (botName: string) =>
     request<unknown>('/bot-orchestration/stop-bot', {

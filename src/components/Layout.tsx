@@ -1,322 +1,36 @@
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import {
   Key,
-  Zap,
+  Plug,
   Bot,
-  Rocket,
-  Archive,
-  ChevronDown,
+  Zap,
   Sun,
   Moon,
-  Plug,
-  Square,
-  FileCode,
+  Rocket,
+  Archive,
   SlidersHorizontal,
+  ChevronDown,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import * as Collapsible from '@radix-ui/react-collapsible';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/theme-provider';
-import { useAccount } from '@/components/account-provider';
 import { AccountSelector } from '@/components/account-selector';
-import { accounts, bots } from '@/api/client';
+import { bots } from '@/api/client';
 import type { BotStatus } from '@/api/client';
-import {
-  Sidebar,
-  SidebarHeader,
-  SidebarContent,
-  SidebarFooter,
-  SidebarMenu,
-  SidebarMenuItem,
-  SidebarMenuButton,
-  SidebarInset,
-} from '@/components/ui/sidebar';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
-interface NavItem {
-  label: string;
-  path: string;
-  icon: React.ReactNode;
-  badge?: React.ReactNode;
-}
-
-interface NavSection {
-  title: string;
-  items: NavItem[];
-}
-
-// Helper to check if connector is perpetual
-function isPerpetualConnector(name: string): boolean {
-  return name.endsWith('_perpetual') || name.endsWith('_perpetual_testnet');
-}
-
-// Helper to format connector name for display
-function formatConnectorName(name: string): string {
-  let displayName = name
-    .replace(/_perpetual_testnet$/, '')
-    .replace(/_perpetual$/, '');
-
-  displayName = displayName
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-
-  return displayName;
-}
-
-// Helper to format bot name for display
 function formatBotName(name: string): string {
   return name
     .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
-}
-
-const staticNavSections: NavSection[] = [
-  {
-    title: 'Strategies',
-    items: [
-      {
-        label: 'Grid Strike',
-        path: '/controllers/grid-strike',
-        icon: <Zap size={18} />,
-      },
-      {
-        label: 'Controllers',
-        path: '/controllers',
-        icon: <SlidersHorizontal size={18} />,
-      },
-      {
-        label: 'Scripts',
-        path: '/scripts',
-        icon: <FileCode size={18} />,
-      },
-    ],
-  },
-];
-
-function NavSectionComponent({ section }: { section: NavSection }) {
-  const [isOpen, setIsOpen] = useState(true);
-  const location = useLocation();
-
-  return (
-    <Collapsible.Root open={isOpen} onOpenChange={setIsOpen} className="mb-2">
-      <Collapsible.Trigger asChild>
-        <button
-          className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
-        >
-          <span>{section.title}</span>
-          <ChevronDown
-            size={14}
-            className={cn(
-              'transition-transform duration-200',
-              !isOpen && '-rotate-90'
-            )}
-          />
-        </button>
-      </Collapsible.Trigger>
-      <Collapsible.Content className="data-[state=closed]:animate-collapse-up data-[state=open]:animate-collapse-down">
-        <SidebarMenu>
-          {section.items.map((item) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <SidebarMenuItem key={item.path}>
-                <SidebarMenuButton asChild isActive={isActive}>
-                  <Link to={item.path} className="flex items-center justify-between w-full">
-                    <span className="flex items-center gap-2">
-                      {item.icon}
-                      {item.label}
-                    </span>
-                    {item.badge}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            );
-          })}
-        </SidebarMenu>
-      </Collapsible.Content>
-    </Collapsible.Root>
-  );
-}
-
-function ConnectorsSection() {
-  const [isOpen, setIsOpen] = useState(true);
-  const [connectedConnectors, setConnectedConnectors] = useState<string[]>([]);
-  const { account } = useAccount();
-  const location = useLocation();
-
-  useEffect(() => {
-    async function fetchConnectors() {
-      if (!account) {
-        setConnectedConnectors([]);
-        return;
-      }
-      try {
-        const creds = await accounts.getCredentials(account);
-        setConnectedConnectors(creds);
-      } catch {
-        setConnectedConnectors([]);
-      }
-    }
-    fetchConnectors();
-  }, [account]);
-
-  // Build connector items with badges
-  const connectorItems: NavItem[] = connectedConnectors
-    .sort((a, b) => a.localeCompare(b))
-    .map((connector) => {
-      const isPerp = isPerpetualConnector(connector);
-      const displayName = formatConnectorName(connector);
-      return {
-        label: displayName,
-        path: `/connectors/${connector}`,
-        icon: <Plug size={18} />,
-        badge: (
-          <Badge
-            variant="outline"
-            className="text-[10px] px-1.5 py-0"
-          >
-            {isPerp ? 'Perp' : 'Spot'}
-          </Badge>
-        ),
-      };
-    });
-
-  // Always show "Add Keys" at the end
-  const allItems: NavItem[] = [
-    ...connectorItems,
-    { label: 'Add Keys', path: '/connectors/keys', icon: <Key size={18} /> },
-  ];
-
-  return (
-    <Collapsible.Root open={isOpen} onOpenChange={setIsOpen} className="mb-2">
-      <Collapsible.Trigger asChild>
-        <button
-          className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
-        >
-          <span>Connectors</span>
-          <ChevronDown
-            size={14}
-            className={cn(
-              'transition-transform duration-200',
-              !isOpen && '-rotate-90'
-            )}
-          />
-        </button>
-      </Collapsible.Trigger>
-      <Collapsible.Content className="data-[state=closed]:animate-collapse-up data-[state=open]:animate-collapse-down">
-        <SidebarMenu>
-          {allItems.map((item, index) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <SidebarMenuItem key={item.path + index}>
-                <SidebarMenuButton asChild isActive={isActive}>
-                  <Link to={item.path} className="flex items-center justify-between w-full">
-                    <span className="flex items-center gap-2">
-                      {item.icon}
-                      {item.label}
-                    </span>
-                    {item.badge}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            );
-          })}
-        </SidebarMenu>
-      </Collapsible.Content>
-    </Collapsible.Root>
-  );
-}
-
-function BotsSection() {
-  const [isOpen, setIsOpen] = useState(true);
-  const [activeBots, setActiveBots] = useState<Record<string, BotStatus>>({});
-  const location = useLocation();
-
-  useEffect(() => {
-    async function fetchBots() {
-      try {
-        const status = await bots.getStatus();
-        setActiveBots(status);
-      } catch {
-        setActiveBots({});
-      }
-    }
-    fetchBots();
-
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchBots, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Build bot items - only show running bots
-  const botItems: NavItem[] = Object.entries(activeBots)
-    .filter(([, status]) => status.status === 'running')
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([botName]) => ({
-      label: formatBotName(botName),
-      path: `/bots/${botName}`,
-      icon: <Bot size={18} />,
-      badge: (
-        <Badge
-          variant="outline"
-          className="text-[10px] px-1.5 py-0"
-        >
-          <span className="flex items-center gap-1">
-            <Square size={8} fill="currentColor" className="text-green-500" />
-            Running
-          </span>
-        </Badge>
-      ),
-    }));
-
-  // Static items at the end
-  const staticItems: NavItem[] = [
-    { label: 'Deploy', path: '/bots/deploy', icon: <Rocket size={18} /> },
-    { label: 'Archived', path: '/bots/archived', icon: <Archive size={18} /> },
-  ];
-
-  const allItems = [...botItems, ...staticItems];
-
-  return (
-    <Collapsible.Root open={isOpen} onOpenChange={setIsOpen} className="mb-2">
-      <Collapsible.Trigger asChild>
-        <button
-          className="flex w-full items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors"
-        >
-          <span>Bots</span>
-          <ChevronDown
-            size={14}
-            className={cn(
-              'transition-transform duration-200',
-              !isOpen && '-rotate-90'
-            )}
-          />
-        </button>
-      </Collapsible.Trigger>
-      <Collapsible.Content className="data-[state=closed]:animate-collapse-up data-[state=open]:animate-collapse-down">
-        <SidebarMenu>
-          {allItems.map((item, index) => {
-            const isActive = location.pathname === item.path;
-            return (
-              <SidebarMenuItem key={item.path + index}>
-                <SidebarMenuButton asChild isActive={isActive}>
-                  <Link to={item.path} className="flex items-center justify-between w-full">
-                    <span className="flex items-center gap-2">
-                      {item.icon}
-                      {item.label}
-                    </span>
-                    {item.badge}
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            );
-          })}
-        </SidebarMenu>
-      </Collapsible.Content>
-    </Collapsible.Root>
-  );
 }
 
 function ThemeToggle() {
@@ -336,56 +50,162 @@ function ThemeToggle() {
   );
 }
 
-export default function Layout() {
+const navLinkStyle = "inline-flex h-9 items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none";
+
+function NavLink({ to, children, isActive }: { to: string; children: React.ReactNode; isActive?: boolean }) {
   return (
-    <div className="flex h-full bg-background">
-      <Sidebar>
-        <SidebarHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Bot size={24} className="text-primary" />
-              <div>
-                <h1 className="text-lg font-bold text-foreground">Hummingbot</h1>
-                <p className="text-xs text-muted-foreground">Dashboard</p>
-              </div>
-            </div>
+    <Link to={to} className={cn(navLinkStyle, isActive && 'bg-accent/50')}>
+      {children}
+    </Link>
+  );
+}
+
+function BotsDropdown() {
+  const [activeBots, setActiveBots] = useState<Record<string, BotStatus>>({});
+
+  useEffect(() => {
+    async function fetchBots() {
+      try {
+        const status = await bots.getStatus();
+        setActiveBots(status);
+      } catch {
+        setActiveBots({});
+      }
+    }
+    fetchBots();
+    const interval = setInterval(fetchBots, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const runningBots = Object.entries(activeBots)
+    .filter(([, status]) => status.status === 'running')
+    .sort(([a], [b]) => a.localeCompare(b));
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className={cn(navLinkStyle, 'gap-1')}>
+        <Bot size={16} />
+        Bots
+        <ChevronDown size={14} className="opacity-50" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        {runningBots.length > 0 && (
+          <>
+            {runningBots.map(([botName]) => (
+              <DropdownMenuItem key={botName} asChild>
+                <Link to={`/bots/${botName}`} className="flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-green-500" />
+                  {formatBotName(botName)}
+                </Link>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+          </>
+        )}
+        <DropdownMenuItem asChild>
+          <Link to="/bots/deploy" className="flex items-center gap-2">
+            <Rocket size={14} />
+            Deploy
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/bots/archived" className="flex items-center gap-2">
+            <Archive size={14} />
+            Archived
+          </Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function StrategiesDropdown() {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger className={cn(navLinkStyle, 'gap-1')}>
+        <Zap size={16} />
+        Strategies
+        <ChevronDown size={14} className="opacity-50" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuItem asChild>
+          <Link to="/controllers/grid-strike" className="flex items-center gap-2">
+            <Zap size={14} />
+            Grid Strike
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link to="/controllers" className="flex items-center gap-2">
+            <SlidersHorizontal size={14} />
+            Configs
+          </Link>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+export default function Layout() {
+  const location = useLocation();
+
+  return (
+    <div className="flex flex-col h-full bg-background">
+      {/* Top Navigation Bar */}
+      <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="flex h-14 items-center px-6">
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2 mr-6">
+            <Bot size={24} className="text-primary" />
+            <span className="text-lg font-bold">Hummingbot</span>
+          </Link>
+
+          {/* Navigation */}
+          <nav className="flex items-center gap-1">
+            <NavLink to="/keys" isActive={location.pathname === '/keys'}>
+              <Key size={16} className="mr-2" />
+              Keys
+            </NavLink>
+
+            <NavLink to="/trade/spot" isActive={location.pathname === '/trade/spot'}>
+              <Plug size={16} className="mr-2" />
+              Spot Markets
+            </NavLink>
+
+            <NavLink to="/trade/perp" isActive={location.pathname === '/trade/perp'}>
+              <Zap size={16} className="mr-2" />
+              Perp Markets
+            </NavLink>
+
+            <BotsDropdown />
+            <StrategiesDropdown />
+          </nav>
+
+          {/* Right side - Account & Theme */}
+          <div className="ml-auto flex items-center gap-3">
+            <AccountSelector />
             <ThemeToggle />
           </div>
-          <div className="mt-3">
-            <AccountSelector />
-          </div>
-        </SidebarHeader>
+        </div>
+      </header>
 
-        <SidebarContent>
-          {/* Connectors Section - Dynamic */}
-          <ConnectorsSection />
+      {/* Main Content */}
+      <main className="flex-1 overflow-auto p-6">
+        <Outlet />
+      </main>
 
-          {/* Static Nav Sections */}
-          {staticNavSections.map((section) => (
-            <NavSectionComponent key={section.title} section={section} />
-          ))}
-
-          {/* Bots Section - Dynamic */}
-          <BotsSection />
-        </SidebarContent>
-
-        <SidebarFooter>
+      {/* Footer */}
+      <footer className="border-t bg-muted/30 px-6 py-2">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
             </span>
-            <span className="text-xs text-muted-foreground">API: localhost:8000</span>
+            <span>API: localhost:8000</span>
           </div>
-        </SidebarFooter>
-      </Sidebar>
-
-      <SidebarInset className="flex flex-col h-full !overflow-auto">
-        {/* Main Content */}
-        <main className="flex-1 p-6">
-          <Outlet />
-        </main>
-      </SidebarInset>
+          <span>Hummingbot Dashboard v1.0</span>
+        </div>
+      </footer>
     </div>
   );
 }

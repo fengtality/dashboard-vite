@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { controllers, marketData, connectors } from '../api/client';
 import type { ControllerConfig } from '../api/client';
-import { Loader2, Plus, Zap, Pencil, Trash2, RefreshCw, HelpCircle } from 'lucide-react';
+import { Loader2, Zap, RefreshCw, HelpCircle } from 'lucide-react';
 import { CandlestickChart } from '@/components/ui/candlestick-chart';
 import type { Candle } from '@/components/ui/candlestick-chart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -10,7 +11,6 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
-import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   HoverCard,
@@ -26,6 +26,10 @@ import {
 } from '@/components/ui/select';
 import { Combobox } from '@/components/ui/combobox';
 import { Skeleton } from '@/components/ui/skeleton';
+import { TripleBarrierVisualization } from '@/components/triple-barrier-visualization';
+import { ConfigModeToggle } from '@/components/config-mode-toggle';
+import { ExistingConfigsList } from '@/components/existing-configs-list';
+import { SaveConfigCard } from '@/components/save-config-card';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -86,20 +90,27 @@ interface GridStrikeFormData {
   manual_kill_switch: boolean;
 }
 
-// Generate random config name: adj + controller_name
+// Generate random config name: adjective-color-tradingpair
 const adjectives = [
-  'swift', 'bold', 'calm', 'dark', 'bright', 'quick', 'slow', 'wild', 'gentle', 'fierce',
-  'silent', 'loud', 'deep', 'high', 'low', 'warm', 'cool', 'sharp', 'soft', 'steady',
-  'rapid', 'smooth', 'rough', 'light', 'heavy', 'fast', 'keen', 'prime', 'grand', 'noble',
-  'vivid', 'pure', 'stark', 'rare', 'true', 'brave', 'wise', 'fair', 'fine', 'great',
+  'swift', 'bold', 'calm', 'bright', 'quick', 'wild', 'gentle', 'fierce',
+  'silent', 'deep', 'warm', 'cool', 'sharp', 'soft', 'steady',
+  'rapid', 'smooth', 'light', 'fast', 'keen', 'prime', 'grand', 'noble',
+  'vivid', 'pure', 'stark', 'rare', 'brave', 'wise', 'fair', 'fine', 'great',
 ];
-function generateRandomConfigName(controllerName: string): string {
+const colors = [
+  'red', 'blue', 'green', 'gold', 'silver', 'bronze', 'amber', 'jade',
+  'ruby', 'coral', 'ivory', 'onyx', 'pearl', 'cyan', 'lime', 'pink',
+  'teal', 'plum', 'sage', 'rust', 'navy', 'olive', 'slate', 'crimson',
+];
+function generateRandomConfigName(tradingPair: string): string {
   const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-  return `${adj}_${controllerName}`;
+  const color = colors[Math.floor(Math.random() * colors.length)];
+  const pair = tradingPair.toLowerCase().replace(/[^a-z0-9]/g, '');
+  return `${adj}-${color}-${pair}`;
 }
 
 const defaultFormData: GridStrikeFormData = {
-  id: generateRandomConfigName('grid_strike'),
+  id: generateRandomConfigName('BTC-USDC'),
   connector_name: '',
   trading_pair: 'BTC-USDC',
   side: 'BUY',
@@ -145,12 +156,14 @@ function parsePositionMode(value: unknown): 'HEDGE' | 'ONEWAY' {
 }
 
 export default function GridStrikeConfig() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState<GridStrikeFormData>(defaultFormData);
   const [existingConfigs, setExistingConfigs] = useState<ControllerConfig[]>([]);
   const [editingConfig, setEditingConfig] = useState<string | null>(null);
   const [mode, setMode] = useState<'create' | 'edit'>('create');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [submittingAction, setSubmittingAction] = useState<'save' | 'deploy'>('save');
   const [error, setError] = useState<string | null>(null);
   const [candles, setCandles] = useState<Candle[]>([]);
   const [loadingCandles, setLoadingCandles] = useState(false);
@@ -158,6 +171,10 @@ export default function GridStrikeConfig() {
 
   // Connector list
   const [connectorList, setConnectorList] = useState<string[]>([]);
+
+  // Trading pairs list
+  const [tradingPairList, setTradingPairList] = useState<string[]>([]);
+  const [loadingTradingPairs, setLoadingTradingPairs] = useState(false);
 
   // Delete dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -191,11 +208,11 @@ export default function GridStrikeConfig() {
 
         // Load template for defaults (only if not editing)
         if (!editingConfig) {
-          const newFormData = { ...defaultFormData, id: generateRandomConfigName('grid_strike') };
-
           // Load template defaults
           try {
             const template = await controllers.getConfigTemplate('generic', 'grid_strike') as Record<string, TemplateField>;
+            const tradingPair = template?.trading_pair?.default ? String(template.trading_pair.default) : defaultFormData.trading_pair;
+            const newFormData = { ...defaultFormData, id: generateRandomConfigName(tradingPair), trading_pair: tradingPair };
             if (template) {
               // Basic settings
               if (template.total_amount_quote?.default) newFormData.total_amount_quote = String(template.total_amount_quote.default);
@@ -206,7 +223,6 @@ export default function GridStrikeConfig() {
               if (template.max_orders_per_batch?.default) newFormData.max_orders_per_batch = Number(template.max_orders_per_batch.default);
               if (template.order_frequency?.default) newFormData.order_frequency = Number(template.order_frequency.default);
               if (template.connector_name?.default) newFormData.connector_name = String(template.connector_name.default);
-              if (template.trading_pair?.default) newFormData.trading_pair = String(template.trading_pair.default);
               if (template.position_mode?.default) newFormData.position_mode = parsePositionMode(template.position_mode.default);
 
               // Triple barrier config
@@ -229,11 +245,11 @@ export default function GridStrikeConfig() {
               if (template.coerce_tp_to_step?.default !== undefined) newFormData.coerce_tp_to_step = Boolean(template.coerce_tp_to_step.default);
               if (template.manual_kill_switch?.default !== undefined) newFormData.manual_kill_switch = Boolean(template.manual_kill_switch.default);
             }
+            setFormData(newFormData);
           } catch {
-            // Ignore template error
+            // Template fetch failed, use defaults
+            setFormData({ ...defaultFormData, id: generateRandomConfigName(defaultFormData.trading_pair) });
           }
-
-          setFormData(newFormData);
         }
       } catch (err) {
         console.error('Failed to load data:', err);
@@ -243,6 +259,29 @@ export default function GridStrikeConfig() {
     }
     loadData();
   }, [refreshKey, editingConfig]);
+
+  // Fetch trading pairs when connector changes
+  useEffect(() => {
+    if (!formData.connector_name) {
+      setTradingPairList([]);
+      return;
+    }
+
+    async function fetchTradingPairs() {
+      setLoadingTradingPairs(true);
+      try {
+        const rules = await connectors.getAllTradingRules(formData.connector_name);
+        const pairs = Object.keys(rules).sort();
+        setTradingPairList(pairs);
+      } catch (err) {
+        console.error('Failed to fetch trading pairs:', err);
+        setTradingPairList([]);
+      } finally {
+        setLoadingTradingPairs(false);
+      }
+    }
+    fetchTradingPairs();
+  }, [formData.connector_name]);
 
   // Fetch candles - updatePrices controls whether to recalculate grid prices
   async function fetchCandles(updatePrices = true) {
@@ -432,7 +471,7 @@ export default function GridStrikeConfig() {
 
   function resetForm() {
     setEditingConfig(null);
-    setFormData({ ...defaultFormData, id: generateRandomConfigName('grid_strike') });
+    setFormData({ ...defaultFormData, id: generateRandomConfigName(defaultFormData.trading_pair) });
     setCandles([]);
     setRefreshKey((k) => k + 1);
   }
@@ -441,15 +480,14 @@ export default function GridStrikeConfig() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
+  async function handleSubmit(action: 'save' | 'deploy') {
     if (!formData.id.trim()) {
       setError('Please enter a config name');
       return;
     }
 
     setSubmitting(true);
+    setSubmittingAction(action);
     setError(null);
 
     try {
@@ -504,8 +542,12 @@ export default function GridStrikeConfig() {
         toast.success(`Grid Strike config "${formData.id}" created successfully`);
       }
 
-      // Reset and refresh
-      resetForm();
+      if (action === 'deploy') {
+        // Navigate to deploy page with controller and config preselected
+        navigate(`/bots/deploy?controller=grid_strike&config=${encodeURIComponent(formData.id)}`);
+      } else {
+        resetForm();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save config');
     } finally {
@@ -561,98 +603,30 @@ export default function GridStrikeConfig() {
       </div>
 
       {/* Mode Toggle */}
-      <div className="mb-6">
-        <Tabs value={mode} onValueChange={(v) => {
-          setMode(v as 'create' | 'edit');
-          if (v === 'create') {
+      <ConfigModeToggle
+        mode={mode}
+        onModeChange={(newMode) => {
+          setMode(newMode);
+          if (newMode === 'create') {
             resetForm();
           }
-        }}>
-          <TabsList className="bg-background gap-1 border p-1">
-            <TabsTrigger
-              value="create"
-              className="data-[state=active]:bg-primary dark:data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:text-primary-foreground"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Create Config
-            </TabsTrigger>
-            <TabsTrigger
-              value="edit"
-              className="data-[state=active]:bg-primary dark:data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:text-primary-foreground"
-            >
-              <Pencil className="h-4 w-4 mr-2" />
-              Edit Config
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-      </div>
+        }}
+      />
 
       {/* Existing Configs - Only show in Edit mode */}
-      {mode === 'edit' && existingConfigs.length > 0 && (
-        <Card className="mb-6">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">Saved Configs</CardTitle>
-            <CardDescription>Edit or delete existing configurations</CardDescription>
-          </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {existingConfigs.map((config) => (
-                  <div
-                    key={config.id}
-                    onClick={() => loadConfigForEditing(config.id)}
-                    className={`flex items-center justify-between p-2 rounded-lg border text-sm cursor-pointer ${
-                      editingConfig === config.id
-                        ? 'bg-primary/10 border-primary'
-                        : 'bg-background border-border hover:border-muted-foreground/50 hover:bg-muted/30'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Zap size={14} className="text-primary" />
-                      <span className="font-medium">{config.id}</span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => { e.stopPropagation(); openDeleteDialog(config.id); }}
-                      className="h-7 px-2 text-destructive hover:text-destructive"
-                    >
-                      <Trash2 size={12} />
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-      {/* No configs message in edit mode */}
-      {mode === 'edit' && existingConfigs.length === 0 && (
-        <Card className="mb-6">
-          <CardContent className="py-8 text-center text-muted-foreground">
-            No saved configs. Switch to Create Config to make one.
-          </CardContent>
-        </Card>
+      {mode === 'edit' && (
+        <ExistingConfigsList
+          configs={existingConfigs}
+          editingConfig={editingConfig}
+          onSelectConfig={loadConfigForEditing}
+          onDeleteConfig={openDeleteDialog}
+          icon={<Zap size={14} className="text-primary" />}
+        />
       )}
 
-      {/* Form Header - show when editing */}
-      {mode === 'edit' && editingConfig && (
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Badge variant="default" className="text-xs">Editing</Badge>
-            <span className="text-foreground font-medium text-sm">{editingConfig}</span>
-          </div>
-          <Button variant="outline" size="sm" onClick={() => { resetForm(); setMode('create'); }} className="h-7 text-xs">
-            <Plus size={12} className="mr-1" />
-            Create New
-          </Button>
-        </div>
-      )}
-
-      {/* Form and Sidebar Container - Show when creating or when editing a selected config */}
+      {/* Form - Show when creating or when editing a selected config */}
       {(mode === 'create' || (mode === 'edit' && editingConfig)) && (
-      <div className="flex gap-6 items-start min-w-0">
-        {/* Main Form Column */}
-        <form onSubmit={handleSubmit} className="flex-1 min-w-0 space-y-6">
+        <form className="max-w-4xl space-y-6">
           {/* Market */}
           <Card>
             <CardHeader className="pb-3">
@@ -674,12 +648,14 @@ export default function GridStrikeConfig() {
                 </div>
                 <div className="space-y-1.5">
                   <FieldLabel htmlFor="trading_pair" help="Trading pair in Base-Quote format (e.g., BTC-USDT, ETH-USDC).">Trading Pair</FieldLabel>
-                  <Input
-                    id="trading_pair"
-                    type="text"
+                  <Combobox
+                    options={tradingPairList.map((p) => ({ value: p, label: p }))}
                     value={formData.trading_pair}
-                    onChange={(e) => updateField('trading_pair', e.target.value)}
-                    placeholder="BTC-USDT"
+                    onValueChange={(v) => updateField('trading_pair', v)}
+                    placeholder={loadingTradingPairs ? 'Loading...' : 'Select trading pair...'}
+                    searchPlaceholder="Search pairs..."
+                    emptyText={formData.connector_name ? 'No pairs found.' : 'Select connector first.'}
+                    disabled={!formData.connector_name || loadingTradingPairs}
                   />
                 </div>
               </div>
@@ -689,35 +665,8 @@ export default function GridStrikeConfig() {
           {/* Grid Settings with Chart */}
           <Card>
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg">Grid</CardTitle>
-                  <CardDescription>Price range and grid direction</CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Tabs value={chartTimeframe} onValueChange={(v) => setChartTimeframe(v as '1h' | '1d' | '7d')}>
-                    <TabsList className="bg-background gap-1 border p-1 h-auto">
-                      <TabsTrigger value="1h" className="text-xs px-2 py-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">1h</TabsTrigger>
-                      <TabsTrigger value="1d" className="text-xs px-2 py-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">1d</TabsTrigger>
-                      <TabsTrigger value="7d" className="text-xs px-2 py-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">7d</TabsTrigger>
-                    </TabsList>
-                  </Tabs>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => fetchCandles(false)}
-                    disabled={loadingCandles}
-                    className="h-8 w-8"
-                  >
-                    {loadingCandles ? (
-                      <Loader2 className="animate-spin" size={16} />
-                    ) : (
-                      <RefreshCw size={16} />
-                    )}
-                  </Button>
-                </div>
-              </div>
+              <CardTitle className="text-lg">Grid</CardTitle>
+              <CardDescription>Price range and grid direction</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-1.5">
@@ -732,14 +681,37 @@ export default function GridStrikeConfig() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="w-full overflow-hidden relative">
+              <div className="flex items-center justify-end gap-2">
+                <Tabs value={chartTimeframe} onValueChange={(v) => setChartTimeframe(v as '1h' | '1d' | '7d')}>
+                  <TabsList className="bg-background gap-1 border p-1 h-auto">
+                    <TabsTrigger value="1h" className="text-xs px-2 py-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">1h</TabsTrigger>
+                    <TabsTrigger value="1d" className="text-xs px-2 py-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">1d</TabsTrigger>
+                    <TabsTrigger value="7d" className="text-xs px-2 py-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">7d</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => fetchCandles(false)}
+                  disabled={loadingCandles}
+                  className="h-8 w-8"
+                >
+                  {loadingCandles ? (
+                    <Loader2 className="animate-spin" size={16} />
+                  ) : (
+                    <RefreshCw size={16} />
+                  )}
+                </Button>
+              </div>
+              <div className="w-full overflow-hidden relative aspect-[5/2] min-h-[250px] max-h-[400px]">
                 {loadingCandles && (
                   <div className="absolute inset-0 z-10 flex flex-col gap-2 p-4 bg-background/80">
                     <div className="flex justify-between items-center">
                       <Skeleton className="h-4 w-16" />
                       <Skeleton className="h-4 w-20" />
                     </div>
-                    <Skeleton className="flex-1 w-full min-h-[250px]" />
+                    <Skeleton className="flex-1 w-full" />
                     <div className="flex justify-between items-center">
                       <Skeleton className="h-3 w-12" />
                       <Skeleton className="h-3 w-24" />
@@ -749,7 +721,7 @@ export default function GridStrikeConfig() {
                 )}
                 <CandlestickChart
                   candles={candles}
-                  height={300}
+                  height={400}
                   priceLines={[
                     { id: 'start', price: parseFloat(formData.start_price) || 0, color: '#22c55e', title: 'Start', lineStyle: 'dashed' as const, draggable: true },
                     { id: 'end', price: parseFloat(formData.end_price) || 0, color: '#3b82f6', title: 'End', lineStyle: 'dashed' as const, draggable: true },
@@ -916,97 +888,14 @@ export default function GridStrikeConfig() {
               <CardDescription>Take profit, stop loss, and exit conditions</CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Triple Barrier Visualization */}
-              {(() => {
-                const tp = parseFloat(formData.take_profit) || 0;
-                const sl = parseFloat(formData.stop_loss) || 0;
-                const ts = parseFloat(formData.trailing_stop) || 0;
-                const timeLimit = parseInt(formData.time_limit) || 0;
-                const hasTP = !!formData.take_profit && tp > 0;
-                const hasSL = !!formData.stop_loss && sl > 0;
-                const hasTS = !!formData.trailing_stop && ts > 0;
-                const hasTimeLimit = timeLimit > 0;
-
-                // Only show visualization if at least one barrier is set
-                if (!hasTP && !hasSL && !hasTS && !hasTimeLimit) {
-                  return (
-                    <div className="mb-4 p-8 bg-muted/30 rounded-lg border border-border border-dashed text-center text-muted-foreground">
-                      Set take profit, stop loss, trailing stop, or time limit to see the barrier visualization
-                    </div>
-                  );
-                }
-
-                // Calculate Y positions as percentages for the container
-                const totalRange = tp + Math.max(sl, ts);
-                let entryPct: number;
-                if (hasTP && (hasSL || hasTS)) {
-                  entryPct = 15 + (tp / totalRange) * 70; // 15% to 85% range
-                } else if (hasTP) {
-                  entryPct = 85;
-                } else if (hasSL || hasTS) {
-                  entryPct = 15;
-                } else {
-                  entryPct = 50;
-                }
-
-                const tpPct = 15;
-                const slPct = 85;
-                const tsPct = hasTS ? entryPct + (ts / Math.max(sl, ts)) * (85 - entryPct) : 50;
-
-                // Line end position - if time limit, lines go to the time limit line position
-                const lineEndPct = hasTimeLimit
-                  ? (timeLimit < 300 ? (timeLimit / 300) * 75 + 10 : 85)
-                  : 85;
-
-                return (
-                  <div className="mb-4 p-4 bg-muted/30 rounded-lg border border-border">
-                    <div className="relative h-48 mx-2">
-                      {/* Take Profit */}
-                      {hasTP && (
-                        <>
-                          <div className="absolute text-sm font-semibold text-green-500" style={{ top: `${tpPct}%`, left: 0, transform: 'translateY(-50%)' }}>Take Profit</div>
-                          <div className="absolute h-0.5 bg-green-500" style={{ top: `${tpPct}%`, left: '110px', width: `calc(${lineEndPct}% - 110px)` }} />
-                          <div className="absolute text-sm font-semibold text-green-500 whitespace-nowrap" style={{ top: `${tpPct}%`, left: `calc(${lineEndPct}% + 8px)`, transform: 'translateY(-50%)' }}>+{(tp * 100).toFixed(2)}%</div>
-                        </>
-                      )}
-
-                      {/* Position Entry */}
-                      <div className="absolute text-sm text-muted-foreground" style={{ top: `${entryPct}%`, left: 0, transform: 'translateY(-50%)' }}>Position Entry</div>
-                      <div className="absolute h-0.5 border-t-2 border-dashed border-muted-foreground/50" style={{ top: `${entryPct}%`, left: '110px', width: `calc(${lineEndPct}% - 110px)` }} />
-
-                      {/* Trailing Stop */}
-                      {hasTS && (
-                        <>
-                          <div className="absolute text-sm font-semibold text-violet-500" style={{ top: `${tsPct}%`, left: 0, transform: 'translateY(-50%)' }}>Trailing Stop</div>
-                          <div className="absolute h-0.5 border-t-2 border-dashed border-violet-500" style={{ top: `${tsPct}%`, left: '110px', width: `calc(${lineEndPct}% - 110px)` }} />
-                          <div className="absolute text-sm font-semibold text-violet-500 whitespace-nowrap" style={{ top: `${tsPct}%`, left: `calc(${lineEndPct}% + 8px)`, transform: 'translateY(-50%)' }}>-{(ts * 100).toFixed(2)}%</div>
-                        </>
-                      )}
-
-                      {/* Stop Loss */}
-                      {hasSL && (
-                        <>
-                          <div className="absolute text-sm font-semibold text-red-500" style={{ top: `${slPct}%`, left: 0, transform: 'translateY(-50%)' }}>Stop Loss</div>
-                          <div className="absolute h-0.5 bg-red-500" style={{ top: `${slPct}%`, left: '110px', width: `calc(${lineEndPct}% - 110px)` }} />
-                          <div className="absolute text-sm font-semibold text-red-500 whitespace-nowrap" style={{ top: `${slPct}%`, left: `calc(${lineEndPct}% + 8px)`, transform: 'translateY(-50%)' }}>-{(sl * 100).toFixed(2)}%</div>
-                        </>
-                      )}
-
-                      {/* Time Limit vertical line (right edge of box) */}
-                      {hasTimeLimit && (
-                        <>
-                          <div className="absolute text-sm font-semibold text-amber-500 whitespace-nowrap" style={{ top: '2%', left: `calc(${lineEndPct}% - 30px)` }}>Time Limit</div>
-                          <div className="absolute w-0.5 border-l-2 border-dashed border-amber-500" style={{ top: `${hasTP ? tpPct : entryPct}%`, bottom: `${100 - (hasSL ? slPct : (hasTS ? tsPct : entryPct))}%`, left: `calc(${lineEndPct}%)` }} />
-                          <div className="absolute text-sm font-semibold text-amber-500 whitespace-nowrap" style={{ top: `${(hasSL ? slPct : (hasTS ? tsPct : entryPct)) + 3}%`, left: `calc(${lineEndPct}% - 15px)` }}>{timeLimit}s</div>
-                        </>
-                      )}
-
-                      {/* Left edge */}
-                      <div className="absolute w-0.5 bg-muted-foreground/30" style={{ top: `${hasTP ? tpPct : entryPct}%`, bottom: `${100 - (hasSL ? slPct : (hasTS ? tsPct : entryPct))}%`, left: '110px' }} />
-                    </div>
-                  </div>
-                );
-              })()}
+              <TripleBarrierVisualization
+                values={{
+                  take_profit: formData.take_profit,
+                  stop_loss: formData.stop_loss,
+                  trailing_stop: formData.trailing_stop,
+                  time_limit: formData.time_limit,
+                }}
+              />
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
@@ -1160,106 +1049,17 @@ export default function GridStrikeConfig() {
           </Card>
 
           {/* Save Config */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Save Config</CardTitle>
-              <CardDescription>Name and save your configuration</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid w-full items-center gap-1.5">
-                <FieldLabel htmlFor="id" help="Unique identifier for this configuration. Used to reference and manage this config.">Config Name</FieldLabel>
-                <Input
-                  id="id"
-                  type="text"
-                  value={formData.id}
-                  onChange={(e) => updateField('id', e.target.value)}
-                  placeholder="my_grid_strike_config"
-                  disabled={!!editingConfig}
-                />
-              </div>
-              {error && (
-                <div className="bg-destructive/10 border border-destructive/50 rounded-lg p-3 text-destructive text-sm">
-                  {error}
-                </div>
-              )}
-              <Button
-                type="submit"
-                disabled={submitting || !formData.id.trim()}
-                className="w-full"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="animate-spin mr-2" size={18} />
-                    {editingConfig ? 'Updating...' : 'Creating...'}
-                  </>
-                ) : (
-                  <>
-                    {editingConfig ? (
-                      <>
-                        <Pencil className="mr-2" size={18} />
-                        Update Config
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="mr-2" size={18} />
-                        Create Config
-                      </>
-                    )}
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
+          <SaveConfigCard
+            configId={formData.id}
+            onConfigIdChange={(id) => updateField('id', id)}
+            isEditing={!!editingConfig}
+            isSubmitting={submitting}
+            submittingAction={submittingAction}
+            error={error}
+            onSave={() => handleSubmit('save')}
+            onSaveAndDeploy={() => handleSubmit('deploy')}
+          />
         </form>
-
-        {/* Right Sidebar - Fixed Width, Sticky */}
-        <div className="w-80 shrink-0 self-start sticky top-6">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Config Preview</CardTitle>
-              <CardDescription>Preview of the configuration file</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="bg-muted/30 rounded-lg p-3 font-mono text-xs space-y-1">
-                <div><span className="text-muted-foreground">id:</span> {formData.id || 'unnamed'}</div>
-                <div><span className="text-muted-foreground">controller_name:</span> grid_strike</div>
-                <div><span className="text-muted-foreground">controller_type:</span> generic</div>
-                <div><span className="text-muted-foreground">connector_name:</span> {formData.connector_name}</div>
-                <div><span className="text-muted-foreground">trading_pair:</span> {formData.trading_pair}</div>
-                <div><span className="text-muted-foreground">side:</span> {formData.side === 'BUY' ? 1 : 2}</div>
-                <div><span className="text-muted-foreground">total_amount_quote:</span> {parseFloat(formData.total_amount_quote) || 0}</div>
-                <div><span className="text-muted-foreground">leverage:</span> {formData.leverage}</div>
-                <div><span className="text-muted-foreground">position_mode:</span> {formData.position_mode}</div>
-                <div><span className="text-muted-foreground">start_price:</span> {parseFloat(formData.start_price) || 'null'}</div>
-                <div><span className="text-muted-foreground">end_price:</span> {parseFloat(formData.end_price) || 'null'}</div>
-                <div><span className="text-muted-foreground">limit_price:</span> {parseFloat(formData.limit_price) || 'null'}</div>
-                <div><span className="text-muted-foreground">min_spread_between_orders:</span> {formData.min_spread_between_orders ? parseFloat(formData.min_spread_between_orders) : 'null'}</div>
-                <div><span className="text-muted-foreground">min_order_amount_quote:</span> {formData.min_order_amount_quote ? parseFloat(formData.min_order_amount_quote) : 'null'}</div>
-                <div><span className="text-muted-foreground">max_open_orders:</span> {formData.max_open_orders}</div>
-                <div><span className="text-muted-foreground">max_orders_per_batch:</span> {formData.max_orders_per_batch || 'null'}</div>
-                <div><span className="text-muted-foreground">order_frequency:</span> {formData.order_frequency}</div>
-                <div><span className="text-muted-foreground">activation_bounds:</span> {formData.activation_bounds ? parseFloat(formData.activation_bounds) : 'null'}</div>
-                <div><span className="text-muted-foreground">keep_position:</span> {String(formData.keep_position)}</div>
-                <div><span className="text-muted-foreground">coerce_tp_to_step:</span> {String(formData.coerce_tp_to_step)}</div>
-                <div><span className="text-muted-foreground">manual_kill_switch:</span> {String(formData.manual_kill_switch)}</div>
-                <div className="pt-1 border-t border-border/50 mt-1">
-                  <span className="text-muted-foreground">triple_barrier_config:</span>
-                </div>
-                <div className="pl-2">
-                  <div><span className="text-muted-foreground">take_profit:</span> {formData.take_profit ? parseFloat(formData.take_profit) : 'null'}</div>
-                  <div><span className="text-muted-foreground">stop_loss:</span> {formData.stop_loss ? parseFloat(formData.stop_loss) : 'null'}</div>
-                  <div><span className="text-muted-foreground">time_limit:</span> {formData.time_limit ? parseInt(formData.time_limit) : 'null'}</div>
-                  <div><span className="text-muted-foreground">trailing_stop:</span> {formData.trailing_stop ? parseFloat(formData.trailing_stop) : 'null'}</div>
-                  <div><span className="text-muted-foreground">open_order_type:</span> {formData.open_order_type}</div>
-                  <div><span className="text-muted-foreground">take_profit_order_type:</span> {formData.take_profit_order_type}</div>
-                  <div><span className="text-muted-foreground">stop_loss_order_type:</span> {formData.stop_loss_order_type}</div>
-                  <div><span className="text-muted-foreground">time_limit_order_type:</span> {formData.time_limit_order_type}</div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
       )}
 
       {/* Delete Confirmation Dialog */}

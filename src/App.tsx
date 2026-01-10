@@ -1,11 +1,11 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AccountProvider } from './components/account-provider';
 import Layout from './components/Layout';
-import ConnectorDetail from './pages/ConnectorDetail';
+import Home from './pages/Home';
+import TradePage from './pages/TradePage';
 import ManageKeys from './pages/ManageKeys';
 import CreateConfig from './pages/CreateConfig';
 import GridStrikeConfig from './pages/GridStrikeConfig';
-import CreateScriptConfig from './pages/CreateScriptConfig';
 import BotDetail from './pages/BotDetail';
 import DeployBot from './pages/DeployBot';
 import ArchivedBots from './pages/ArchivedBots';
@@ -17,14 +17,15 @@ function App() {
       <AccountProvider>
         <Routes>
           <Route path="/" element={<Layout />}>
-            <Route index element={<Navigate to="/bots/deploy" replace />} />
-            {/* Connectors */}
-            <Route path="connectors/keys" element={<ManageKeys />} />
-            <Route path="connectors/:connectorName" element={<ConnectorDetail />} />
+            <Route index element={<Home />} />
+            {/* Trade */}
+            <Route path="trade/spot" element={<TradePage type="spot" />} />
+            <Route path="trade/perp" element={<TradePage type="perp" />} />
+            {/* Keys */}
+            <Route path="keys" element={<ManageKeys />} />
             {/* Strategies */}
             <Route path="controllers" element={<CreateConfig />} />
             <Route path="controllers/grid-strike" element={<GridStrikeConfig />} />
-            <Route path="scripts" element={<CreateScriptConfig />} />
             {/* Bots */}
             <Route path="bots/:botName" element={<BotDetail />} />
             <Route path="bots/deploy" element={<DeployBot />} />

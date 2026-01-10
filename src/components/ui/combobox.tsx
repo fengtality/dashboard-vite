@@ -30,6 +30,7 @@ interface ComboboxProps {
   emptyText?: string;
   className?: string;
   disabled?: boolean;
+  allowCustomValue?: boolean;
 }
 
 export function Combobox({
@@ -41,13 +42,34 @@ export function Combobox({
   emptyText = 'No results found.',
   className,
   disabled = false,
+  allowCustomValue = false,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
+  const [search, setSearch] = React.useState('');
 
   const selectedOption = options.find((option) => option.value === value);
 
+  // Check if search matches any existing option
+  const searchMatchesOption = options.some(
+    (option) => option.value.toLowerCase() === search.toLowerCase() ||
+                option.label.toLowerCase() === search.toLowerCase()
+  );
+
+  // Show custom value option if allowed and search doesn't match existing
+  const showCustomOption = allowCustomValue && search.trim() && !searchMatchesOption;
+
+  // Display value: use option label if found, or the raw value if custom
+  const displayValue = selectedOption
+    ? selectedOption.label
+    : value
+      ? value
+      : placeholder;
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(isOpen) => {
+      setOpen(isOpen);
+      if (!isOpen) setSearch('');
+    }}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -56,22 +78,42 @@ export function Combobox({
           className={cn('w-full justify-between', className)}
           disabled={disabled}
         >
-          {selectedOption ? selectedOption.label : placeholder}
+          <span className={cn(!value && 'text-muted-foreground')}>{displayValue}</span>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
-          <CommandInput placeholder={searchPlaceholder} />
+        <Command shouldFilter={true}>
+          <CommandInput
+            placeholder={searchPlaceholder}
+            value={search}
+            onValueChange={setSearch}
+          />
           <CommandList>
-            <CommandEmpty>{emptyText}</CommandEmpty>
+            <CommandEmpty>
+              {showCustomOption ? null : emptyText}
+            </CommandEmpty>
             <CommandGroup>
+              {showCustomOption && (
+                <CommandItem
+                  value={search}
+                  onSelect={() => {
+                    onValueChange?.(search.trim());
+                    setSearch('');
+                    setOpen(false);
+                  }}
+                >
+                  <Check className="mr-2 h-4 w-4 opacity-0" />
+                  Use "{search.trim()}"
+                </CommandItem>
+              )}
               {options.map((option) => (
                 <CommandItem
                   key={option.value}
                   value={option.value}
                   onSelect={(currentValue) => {
                     onValueChange?.(currentValue === value ? '' : currentValue);
+                    setSearch('');
                     setOpen(false);
                   }}
                 >

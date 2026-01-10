@@ -1,14 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { controllers, scripts, docker, bots } from '../api/client';
 import type { ControllerConfig, ScriptConfig } from '../api/client';
 import { useAccount } from '@/components/account-provider';
-import { Loader2, Rocket, AlertCircle, Zap, FileCode } from 'lucide-react';
+import { Loader2, Rocket, AlertCircle, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -16,69 +16,135 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
-type DeploymentType = 'v2-controllers' | 'script';
-
-// Generate random bot name: color + noun
-const colors = [
-  'red', 'blue', 'green', 'gold', 'silver', 'purple', 'orange', 'teal', 'coral', 'amber',
-  'crimson', 'azure', 'emerald', 'ruby', 'jade', 'violet', 'indigo', 'scarlet', 'cobalt', 'bronze',
-  'ivory', 'onyx', 'pearl', 'copper', 'steel', 'frost', 'slate', 'sage', 'rose', 'plum',
-];
-const nouns = [
-  'eagle', 'falcon', 'hawk', 'sparrow', 'robin', 'owl', 'raven', 'phoenix', 'heron', 'finch',
-  'cardinal', 'jay', 'dove', 'swan', 'crane', 'pelican', 'condor', 'osprey', 'kite', 'vulture',
-  'parrot', 'macaw', 'toucan', 'kingfisher', 'woodpecker', 'hummingbird', 'nightingale', 'lark', 'wren', 'thrush',
-  'albatross', 'puffin', 'penguin', 'flamingo', 'stork', 'ibis', 'egret', 'oriole', 'tanager', 'warbler',
-];
-function generateRandomBotName(): string {
-  const color = colors[Math.floor(Math.random() * colors.length)];
-  const noun = nouns[Math.floor(Math.random() * nouns.length)];
-  return `${color}_${noun}`;
-}
+import * as Collapsible from '@radix-ui/react-collapsible';
+import { cn } from '@/lib/utils';
 
 export default function DeployBot() {
   const { account } = useAccount();
-  const [deploymentType, setDeploymentType] = useState<DeploymentType>('v2-controllers');
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const preselectedType = searchParams.get('type') || 'controller';
+  const preselectedStrategy = searchParams.get('strategy');
+  const preselectedConfig = searchParams.get('config');
 
-  // V2 Controllers state
+  // Strategy type state
+  const [selectedType, setSelectedType] = useState<'controller' | 'script'>(
+    preselectedType === 'script' ? 'script' : 'controller'
+  );
+
+  // Controllers state
   const [controllerConfigs, setControllerConfigs] = useState<ControllerConfig[]>([]);
-  const [selectedControllerConfigs, setSelectedControllerConfigs] = useState<string[]>([]);
 
   // Scripts state
-  const [scriptList, setScriptList] = useState<string[]>([]);
+  const [scriptsList, setScriptsList] = useState<string[]>([]);
   const [scriptConfigs, setScriptConfigs] = useState<ScriptConfig[]>([]);
-  const [selectedScript, setSelectedScript] = useState<string>('');
-  const [selectedScriptConfig, setSelectedScriptConfig] = useState<string>('');
+
+  // Selection state
+  const [selectedStrategy, setSelectedStrategy] = useState<string>(preselectedStrategy || '');
+  const [selectedConfig, setSelectedConfig] = useState<string>(preselectedConfig || '');
+
+  // Docker images state
+  const [imageTags, setImageTags] = useState<string[]>([]);
+  const [selectedTag, setSelectedTag] = useState<string>('latest');
 
   // Common state
-  const [images, setImages] = useState<string[]>([]);
-  const [selectedImage, setSelectedImage] = useState<string>('');
-  const [botName, setBotName] = useState<string>(generateRandomBotName());
   const [loading, setLoading] = useState(true);
   const [deploying, setDeploying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [configDetails, setConfigDetails] = useState<Record<string, unknown> | null>(null);
+  const [configPreviewOpen, setConfigPreviewOpen] = useState(false);
+
+  const isScriptType = selectedType === 'script';
+
+  // Bot name is auto-generated from selected config
+  const botName = selectedConfig ? `${selectedConfig}_bot` : '';
+
+  // Get strategy options based on type
+  const strategyOptions = useMemo(() => {
+    if (isScriptType) {
+      return scriptsList.sort().map(name => ({ value: name, label: name }));
+    } else {
+      const uniqueControllers = [...new Set(controllerConfigs.map(c => c.controller_name))];
+      return uniqueControllers.sort().map(name => ({ value: name, label: name }));
+    }
+  }, [isScriptType, scriptsList, controllerConfigs]);
+
+  // Get configs filtered by selected strategy
+  const configOptions = useMemo(() => {
+    if (!selectedStrategy) return [];
+    if (isScriptType) {
+      return scriptConfigs
+        .filter(c => c.script_name === selectedStrategy)
+        .map(c => ({ value: c.id, label: c.id }));
+    } else {
+      return controllerConfigs
+        .filter(c => c.controller_name === selectedStrategy)
+        .map(c => ({ value: c.id, label: c.id }));
+    }
+  }, [isScriptType, selectedStrategy, scriptConfigs, controllerConfigs]);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [controllerConfigsData, scriptListData, scriptConfigsData, imagesData] = await Promise.all([
+        const [controllerConfigsData, scriptsListData, scriptConfigsData, imagesData] = await Promise.all([
           controllers.listConfigs(),
           scripts.list(),
           scripts.listConfigs(),
           docker.getAvailableImages('hummingbot'),
         ]);
         setControllerConfigs(controllerConfigsData);
-        setScriptList(scriptListData);
+        setScriptsList(scriptsListData);
         setScriptConfigs(scriptConfigsData);
-        setImages(imagesData);
 
-        if (imagesData.length > 0) {
-          setSelectedImage(imagesData[0]);
+        // Extract tags from hummingbot/hummingbot images
+        const tags = imagesData
+          .filter(img => img.startsWith('hummingbot/hummingbot:'))
+          .map(img => img.replace('hummingbot/hummingbot:', ''));
+        setImageTags(tags);
+        if (tags.length > 0) {
+          setSelectedTag(tags[0]);
         }
-        if (scriptListData.length > 0) {
-          setSelectedScript(scriptListData[0]);
+
+        // Set preselected values if provided and valid
+        if (preselectedStrategy) {
+          if (preselectedType === 'script') {
+            const hasScript = scriptsListData.includes(preselectedStrategy);
+            if (hasScript) {
+              setSelectedStrategy(preselectedStrategy);
+            }
+          } else {
+            const hasController = controllerConfigsData.some(c => c.controller_name === preselectedStrategy);
+            if (hasController) {
+              setSelectedStrategy(preselectedStrategy);
+            }
+          }
+        }
+        if (preselectedConfig) {
+          if (preselectedType === 'script') {
+            const configExists = scriptConfigsData.some(c => c.id === preselectedConfig);
+            if (configExists) {
+              setSelectedConfig(preselectedConfig);
+              // Also set the script from the config if not already set
+              if (!preselectedStrategy) {
+                const config = scriptConfigsData.find(c => c.id === preselectedConfig);
+                if (config) {
+                  setSelectedStrategy(config.script_name);
+                }
+              }
+            }
+          } else {
+            const configExists = controllerConfigsData.some(c => c.id === preselectedConfig);
+            if (configExists) {
+              setSelectedConfig(preselectedConfig);
+              // Also set the controller from the config if not already set
+              if (!preselectedStrategy) {
+                const config = controllerConfigsData.find(c => c.id === preselectedConfig);
+                if (config) {
+                  setSelectedStrategy(config.controller_name);
+                }
+              }
+            }
+          }
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch data');
@@ -87,20 +153,66 @@ export default function DeployBot() {
       }
     }
     fetchData();
-  }, []);
+  }, [preselectedType, preselectedStrategy, preselectedConfig]);
 
-  function toggleControllerConfig(configId: string) {
-    setSelectedControllerConfigs((prev) =>
-      prev.includes(configId)
-        ? prev.filter((c) => c !== configId)
-        : [...prev, configId]
-    );
+  // Fetch config details when selection changes
+  useEffect(() => {
+    if (!selectedConfig) {
+      setConfigDetails(null);
+      return;
+    }
+
+    async function fetchConfigDetails() {
+      try {
+        if (isScriptType) {
+          const config = await scripts.getConfig(selectedConfig);
+          // Remove id, script_name for display
+          const { id, script_name, ...rest } = config;
+          setConfigDetails(rest);
+        } else {
+          const config = await controllers.getConfig(selectedConfig);
+          // Remove id, controller_name, controller_type for display
+          const { id, controller_name, controller_type, ...rest } = config;
+          setConfigDetails(rest);
+        }
+      } catch {
+        setConfigDetails(null);
+      }
+    }
+    fetchConfigDetails();
+  }, [selectedConfig, isScriptType]);
+
+  // Clear selections when type changes
+  function handleTypeChange(type: 'controller' | 'script') {
+    setSelectedType(type);
+    setSelectedStrategy('');
+    setSelectedConfig('');
+    setConfigDetails(null);
+  }
+
+  // Clear config when strategy changes (unless it's still valid)
+  function handleStrategyChange(strategy: string) {
+    setSelectedStrategy(strategy);
+    // Check if current config is still valid for new strategy
+    let isConfigValid = false;
+    if (isScriptType) {
+      isConfigValid = scriptConfigs.some(
+        c => c.script_name === strategy && c.id === selectedConfig
+      );
+    } else {
+      isConfigValid = controllerConfigs.some(
+        c => c.controller_name === strategy && c.id === selectedConfig
+      );
+    }
+    if (!isConfigValid) {
+      setSelectedConfig('');
+    }
   }
 
   async function handleDeploy(e: React.FormEvent) {
     e.preventDefault();
-    if (!botName.trim()) {
-      setError('Please enter a bot name');
+    if (!selectedConfig) {
+      setError('Please select a config');
       return;
     }
     if (!account) {
@@ -108,42 +220,33 @@ export default function DeployBot() {
       return;
     }
 
-    if (deploymentType === 'v2-controllers') {
-      if (selectedControllerConfigs.length === 0) {
-        setError('Please select at least one controller config');
-        return;
-      }
-    } else {
-      if (!selectedScript && !selectedScriptConfig) {
-        setError('Please select a script or script config');
-        return;
-      }
-    }
-
     setDeploying(true);
     setError(null);
 
     try {
-      if (deploymentType === 'v2-controllers') {
-        await bots.deployV2Controllers({
-          instance_name: botName,
-          credentials_profile: account,
-          controllers_config: selectedControllerConfigs,
-          image: selectedImage,
-        });
-      } else {
+      if (isScriptType) {
+        // Deploy using V2 script endpoint
         await bots.deployV2Script({
           instance_name: botName,
           credentials_profile: account,
-          script: selectedScript || undefined,
-          script_config: selectedScriptConfig || undefined,
-          image: selectedImage,
+          script: selectedStrategy,
+          script_config: selectedConfig,
+          image: `hummingbot/hummingbot:${selectedTag}`,
+        });
+      } else {
+        // Deploy using V2 controllers endpoint
+        await bots.deployV2Controllers({
+          instance_name: botName,
+          credentials_profile: account,
+          controllers_config: [selectedConfig],
+          image: `hummingbot/hummingbot:${selectedTag}`,
         });
       }
+
       toast.success(`Bot "${botName}" deployed successfully!`);
-      setBotName(generateRandomBotName());
-      setSelectedControllerConfigs([]);
-      setSelectedScriptConfig('');
+
+      // Navigate to bot detail page
+      navigate(`/bots/${encodeURIComponent(botName)}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to deploy bot');
     } finally {
@@ -183,234 +286,129 @@ export default function DeployBot() {
       )}
 
       <form onSubmit={handleDeploy} className="space-y-6">
-        {/* Deployment Type Selection */}
+        {/* Select Config */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Deployment Type</CardTitle>
-            <CardDescription>Choose the type of bot to deploy</CardDescription>
+            <CardTitle className="text-lg">Select Config</CardTitle>
+            <CardDescription>Select a strategy type, strategy, and configuration to deploy</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Tabs value={deploymentType} onValueChange={(v) => setDeploymentType(v as DeploymentType)}>
-              <TabsList className="bg-background gap-1 border p-1">
-                <TabsTrigger
-                  value="v2-controllers"
-                  className="gap-2 data-[state=active]:bg-primary dark:data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:text-primary-foreground"
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="space-y-1.5">
+                <Label>Type</Label>
+                <Select value={selectedType} onValueChange={(v) => handleTypeChange(v as 'controller' | 'script')}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="controller">Controller</SelectItem>
+                    <SelectItem value="script">Script</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Strategy</Label>
+                <Select value={selectedStrategy} onValueChange={handleStrategyChange}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select strategy..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {strategyOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Config</Label>
+                <Select
+                  value={selectedConfig}
+                  onValueChange={setSelectedConfig}
+                  disabled={!selectedStrategy}
                 >
-                  <Zap size={16} />
-                  Controllers
-                </TabsTrigger>
-                <TabsTrigger
-                  value="script"
-                  className="gap-2 data-[state=active]:bg-primary dark:data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:text-primary-foreground"
-                >
-                  <FileCode size={16} />
-                  Scripts
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <p className="text-sm text-muted-foreground mt-3">
-              {deploymentType === 'v2-controllers' ? (
-                <>
-                  <strong>Controllers:</strong> Deploy a bot with one or more V2 controller strategies like Grid Strike.
-                </>
-              ) : (
-                <>
-                  <strong>Scripts:</strong> Deploy a bot with a simple Python script strategy.
-                </>
-              )}
-            </p>
+                  <SelectTrigger>
+                    <SelectValue placeholder={selectedStrategy ? "Select config..." : "Select strategy first..."} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {configOptions.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Bot Name */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Bot Name</CardTitle>
-            <CardDescription>Enter a unique name for your bot</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Input
-              type="text"
-              value={botName}
-              onChange={(e) => setBotName(e.target.value)}
-              placeholder="my_trading_bot"
-            />
-          </CardContent>
-        </Card>
+        {/* Config Details - Collapsible */}
+        {configDetails && (
+          <Collapsible.Root open={configPreviewOpen} onOpenChange={setConfigPreviewOpen}>
+            <Card>
+              <Collapsible.Trigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg">{selectedStrategy} : {selectedConfig}</CardTitle>
+                      <CardDescription>{isScriptType ? 'Script Config' : 'Controller Config'}</CardDescription>
+                    </div>
+                    <ChevronDown
+                      size={20}
+                      className={cn(
+                        'text-muted-foreground transition-transform duration-200',
+                        configPreviewOpen && 'rotate-180'
+                      )}
+                    />
+                  </div>
+                </CardHeader>
+              </Collapsible.Trigger>
+              <Collapsible.Content>
+                <CardContent className="pt-0">
+                  <div className="bg-muted/30 rounded-lg p-3 font-mono text-xs space-y-1">
+                    {Object.entries(configDetails).map(([key, value]) => (
+                      <div key={key}>
+                        <span className="text-muted-foreground">{key}:</span>{' '}
+                        {value === null ? 'null' : typeof value === 'object' ? JSON.stringify(value) : String(value)}
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Collapsible.Content>
+            </Card>
+          </Collapsible.Root>
+        )}
 
         {/* Docker Image */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Docker Image</CardTitle>
-            <CardDescription>Select the Hummingbot Docker image to use</CardDescription>
+            <CardDescription>Select the Hummingbot Docker image tag to use</CardDescription>
           </CardHeader>
           <CardContent>
-            <Select value={selectedImage} onValueChange={setSelectedImage}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select image..." />
-              </SelectTrigger>
-              <SelectContent>
-                {images.map((image) => (
-                  <SelectItem key={image} value={image}>
-                    {image}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="space-y-1.5">
+              <Label>Tag</Label>
+              <Select value={selectedTag} onValueChange={setSelectedTag}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select tag..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {imageTags.map((tag) => (
+                    <SelectItem key={tag} value={tag}>
+                      {tag}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
         </Card>
 
-        {/* V2 Controller Configs */}
-        {deploymentType === 'v2-controllers' && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Controller Configs</CardTitle>
-              <CardDescription>Select one or more V2 controller configurations for your bot</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {controllerConfigs.length === 0 ? (
-                <div className="text-center py-4 text-muted-foreground">
-                  No V2 controller configs available. Create a controller config first.
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-64 overflow-y-auto">
-                  {controllerConfigs.map((config) => (
-                    <label
-                      key={config.id}
-                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                        selectedControllerConfigs.includes(config.id)
-                          ? 'bg-primary/10 border-primary'
-                          : 'bg-background border-border hover:border-muted-foreground/50'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedControllerConfigs.includes(config.id)}
-                        onChange={() => toggleControllerConfig(config.id)}
-                        className="w-4 h-4 rounded border-input text-primary focus:ring-ring"
-                      />
-                      <div className="flex-1">
-                        <span className="text-foreground font-medium">{config.id}</span>
-                        <div className="flex gap-2 mt-1">
-                          <Badge variant="secondary" className="text-xs">
-                            {config.controller_type}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            {config.controller_name}
-                          </Badge>
-                        </div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Script Selection */}
-        {deploymentType === 'script' && (
-          <>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Script</CardTitle>
-                <CardDescription>Select a script to run (optional if using a script config)</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Select value={selectedScript} onValueChange={setSelectedScript}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select script..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">No script (use config only)</SelectItem>
-                    {scriptList.map((script) => (
-                      <SelectItem key={script} value={script}>
-                        {script}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Script Config</CardTitle>
-                <CardDescription>Select a pre-configured script configuration (optional)</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {scriptConfigs.length === 0 ? (
-                  <div className="text-center py-4 text-muted-foreground">
-                    No script configs available. Create a script config first, or deploy with just a script.
-                  </div>
-                ) : (
-                  <Select value={selectedScriptConfig} onValueChange={setSelectedScriptConfig}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select script config..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">No config</SelectItem>
-                      {scriptConfigs.map((config) => (
-                        <SelectItem key={config.id} value={config.id}>
-                          {config.id}
-                          {config.script_name && ` (${config.script_name})`}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </CardContent>
-            </Card>
-          </>
-        )}
-
-        {/* Selected configs summary */}
-        {deploymentType === 'v2-controllers' && selectedControllerConfigs.length > 0 && (
-          <Card>
-            <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground mb-2">
-                Selected {selectedControllerConfigs.length} controller config(s):
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {selectedControllerConfigs.map((id) => (
-                  <Badge key={id} variant="default">
-                    {id}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {deploymentType === 'script' && (selectedScript || selectedScriptConfig) && (
-          <Card>
-            <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground mb-2">Deployment summary:</p>
-              <div className="flex flex-wrap gap-2">
-                {selectedScript && (
-                  <Badge variant="default">
-                    Script: {selectedScript}
-                  </Badge>
-                )}
-                {selectedScriptConfig && (
-                  <Badge variant="secondary">
-                    Config: {selectedScriptConfig}
-                  </Badge>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
         <Button
           type="submit"
-          disabled={
-            deploying ||
-            !botName.trim() ||
-            !account ||
-            (deploymentType === 'v2-controllers' && selectedControllerConfigs.length === 0) ||
-            (deploymentType === 'script' && !selectedScript && !selectedScriptConfig)
-          }
+          disabled={deploying || !selectedConfig || !account}
           className="w-full"
           variant="default"
         >

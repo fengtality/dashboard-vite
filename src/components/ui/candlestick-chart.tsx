@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
-import { createChart, ColorType, CandlestickSeries, LineSeries } from 'lightweight-charts';
-import type { IChartApi, ISeriesApi, CandlestickData, Time } from 'lightweight-charts';
+import { useEffect, useRef, useState } from 'react';
+import { createChart, ColorType, CandlestickSeries, LineSeries, HistogramSeries } from 'lightweight-charts';
+import type { IChartApi, ISeriesApi, CandlestickData, Time, HistogramData } from 'lightweight-charts';
 
 export interface Candle {
   timestamp: number;
@@ -23,7 +23,7 @@ export interface PriceLine {
 interface CandlestickChartProps {
   candles: Candle[];
   priceLines?: PriceLine[];
-  height?: number;
+  height?: number | string;
   emptyMessage?: string;
   onPriceLineChange?: (id: string, newPrice: number) => void;
 }
@@ -31,14 +31,16 @@ interface CandlestickChartProps {
 export function CandlestickChart({
   candles,
   priceLines = [],
-  height = 300,
+  height = '100%',
   emptyMessage = 'No candle data available',
   onPriceLineChange,
 }: CandlestickChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const priceLineSeriesRef = useRef<Map<string, ISeriesApi<'Line'>>>(new Map());
+  const [chartReady, setChartReady] = useState(false);
 
   // Refs for drag state to avoid stale closures
   const dragStateRef = useRef<{ id: string; startPrice: number } | null>(null);
@@ -59,9 +61,10 @@ export function CandlestickChart({
     if (!chartContainerRef.current) return;
 
     const container = chartContainerRef.current;
+    const initialHeight = typeof height === 'number' ? height : container.clientHeight || 300;
     const chart = createChart(container, {
       width: container.clientWidth,
-      height,
+      height: initialHeight,
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
         textColor: '#9ca3af',
@@ -72,7 +75,7 @@ export function CandlestickChart({
       },
       rightPriceScale: {
         borderColor: 'rgba(156, 163, 175, 0.2)',
-        scaleMargins: { top: 0.1, bottom: 0.1 },
+        scaleMargins: { top: 0.1, bottom: 0.2 },
       },
       timeScale: {
         borderColor: 'rgba(156, 163, 175, 0.2)',
@@ -93,14 +96,28 @@ export function CandlestickChart({
       wickDownColor: '#ef4444',
     });
 
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      priceFormat: { type: 'volume' },
+      priceScaleId: '',
+    });
+    volumeSeries.priceScale().applyOptions({
+      scaleMargins: { top: 0.85, bottom: 0 },
+    });
+
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
+    volumeSeriesRef.current = volumeSeries;
+    setChartReady(true);
 
     // Handle resize
     const resizeObserver = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (entry && chartRef.current) {
-        chartRef.current.applyOptions({ width: entry.contentRect.width });
+        const fallbackHeight = typeof height === 'number' ? height : 300;
+        chartRef.current.applyOptions({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height || fallbackHeight,
+        });
       }
     });
     resizeObserver.observe(container);
@@ -110,7 +127,9 @@ export function CandlestickChart({
       chart.remove();
       chartRef.current = null;
       candleSeriesRef.current = null;
+      volumeSeriesRef.current = null;
       priceLineSeriesRef.current.clear();
+      setChartReady(false);
     };
   }, [height]);
 
@@ -227,7 +246,7 @@ export function CandlestickChart({
 
   // Update candle data
   useEffect(() => {
-    if (!candleSeriesRef.current || candles.length === 0) return;
+    if (!chartReady || !candleSeriesRef.current || candles.length === 0) return;
 
     const chartData: CandlestickData<Time>[] = candles.map((c) => ({
       time: (c.timestamp / 1000) as Time,
@@ -238,12 +257,23 @@ export function CandlestickChart({
     }));
 
     candleSeriesRef.current.setData(chartData);
+
+    // Set volume data with colors based on candle direction
+    if (volumeSeriesRef.current) {
+      const volumeData: HistogramData<Time>[] = candles.map((c) => ({
+        time: (c.timestamp / 1000) as Time,
+        value: c.volume,
+        color: c.close >= c.open ? 'rgba(34, 197, 94, 0.5)' : 'rgba(239, 68, 68, 0.5)',
+      }));
+      volumeSeriesRef.current.setData(volumeData);
+    }
+
     chartRef.current?.timeScale().fitContent();
-  }, [candles]);
+  }, [candles, chartReady]);
 
   // Update price lines using line series
   useEffect(() => {
-    if (!chartRef.current || candles.length === 0) return;
+    if (!chartReady || !chartRef.current || candles.length === 0) return;
 
     const chart = chartRef.current;
 
@@ -289,7 +319,7 @@ export function CandlestickChart({
         priceLineSeriesRef.current.set(line.id, lineSeries);
       }
     });
-  }, [priceLines, candles]);
+  }, [priceLines, candles, chartReady]);
 
   return (
     <div ref={chartContainerRef} style={{ height, width: '100%' }}>

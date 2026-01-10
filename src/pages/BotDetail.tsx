@@ -81,7 +81,7 @@ export default function BotDetail() {
     if (!botName) return;
     setActionLoading(true);
     try {
-      await bots.startBot(botName);
+      await bots.startBot({ bot_name: botName });
       await fetchData();
       toast.success(`Bot "${botName}" started`);
     } catch (err) {

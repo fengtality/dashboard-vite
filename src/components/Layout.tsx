@@ -6,32 +6,11 @@ import {
   Zap,
   Sun,
   Moon,
-  Rocket,
-  Archive,
-  SlidersHorizontal,
-  ChevronDown,
   User,
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/theme-provider';
-import { bots } from '@/api/client';
-import type { BotStatus } from '@/api/client';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-
-function formatBotName(name: string): string {
-  return name
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
 
 function ThemeToggle() {
   const { theme, setTheme } = useTheme();
@@ -60,90 +39,6 @@ function NavLink({ to, children, isActive }: { to: string; children: React.React
   );
 }
 
-function BotsDropdown() {
-  const [activeBots, setActiveBots] = useState<Record<string, BotStatus>>({});
-
-  useEffect(() => {
-    async function fetchBots() {
-      try {
-        const status = await bots.getStatus();
-        setActiveBots(status);
-      } catch {
-        setActiveBots({});
-      }
-    }
-    fetchBots();
-    const interval = setInterval(fetchBots, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const runningBots = Object.entries(activeBots)
-    .filter(([, status]) => status.status === 'running')
-    .sort(([a], [b]) => a.localeCompare(b));
-
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger className={cn(navLinkStyle, 'gap-1')}>
-        <Bot size={16} />
-        Bots
-        <ChevronDown size={14} className="opacity-50" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        {runningBots.length > 0 && (
-          <>
-            {runningBots.map(([botName]) => (
-              <DropdownMenuItem key={botName} asChild>
-                <Link to={`/bots/${botName}`} className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-green-500" />
-                  {formatBotName(botName)}
-                </Link>
-              </DropdownMenuItem>
-            ))}
-            <DropdownMenuSeparator />
-          </>
-        )}
-        <DropdownMenuItem asChild>
-          <Link to="/bots/deploy" className="flex items-center gap-2">
-            <Rocket size={14} />
-            Deploy
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link to="/bots/archived" className="flex items-center gap-2">
-            <Archive size={14} />
-            Archived
-          </Link>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
-
-function StrategiesDropdown() {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger className={cn(navLinkStyle, 'gap-1')}>
-        <Zap size={16} />
-        Strategies
-        <ChevronDown size={14} className="opacity-50" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        <DropdownMenuItem asChild>
-          <Link to="/controllers/grid-strike" className="flex items-center gap-2">
-            <Zap size={14} />
-            Grid Strike
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild>
-          <Link to="/controllers" className="flex items-center gap-2">
-            <SlidersHorizontal size={14} />
-            Configs
-          </Link>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
-}
 
 export default function Layout() {
   const location = useLocation();
@@ -176,8 +71,15 @@ export default function Layout() {
               Perp Markets
             </NavLink>
 
-            <BotsDropdown />
-            <StrategiesDropdown />
+            <NavLink to="/bots" isActive={location.pathname.startsWith('/bots')}>
+              <Bot size={16} className="mr-2" />
+              Bots
+            </NavLink>
+
+            <NavLink to="/strategies" isActive={location.pathname.startsWith('/strategies')}>
+              <Zap size={16} className="mr-2" />
+              Strategies
+            </NavLink>
           </nav>
 
           {/* Right side - Account Settings & Theme */}

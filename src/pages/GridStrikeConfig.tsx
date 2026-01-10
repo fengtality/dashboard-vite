@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { controllers, marketData, connectors } from '../api/client';
-import type { ControllerConfig } from '../api/client';
-import { Loader2, Zap, RefreshCw, HelpCircle } from 'lucide-react';
+import { generateConfigName } from '@/lib/utils';
+import { Loader2, Zap, RefreshCw, HelpCircle, ArrowLeft } from 'lucide-react';
 import { CandlestickChart } from '@/components/ui/candlestick-chart';
 import type { Candle } from '@/components/ui/candlestick-chart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -27,19 +27,7 @@ import {
 import { Combobox } from '@/components/ui/combobox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TripleBarrierVisualization } from '@/components/triple-barrier-visualization';
-import { ConfigModeToggle } from '@/components/config-mode-toggle';
-import { ExistingConfigsList } from '@/components/existing-configs-list';
 import { SaveConfigCard } from '@/components/save-config-card';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 
 // Field label with hover card for help text
 function FieldLabel({ htmlFor, children, help }: { htmlFor: string; children: React.ReactNode; help: string }) {
@@ -90,27 +78,8 @@ interface GridStrikeFormData {
   manual_kill_switch: boolean;
 }
 
-// Generate random config name: adjective-color-tradingpair
-const adjectives = [
-  'swift', 'bold', 'calm', 'bright', 'quick', 'wild', 'gentle', 'fierce',
-  'silent', 'deep', 'warm', 'cool', 'sharp', 'soft', 'steady',
-  'rapid', 'smooth', 'light', 'fast', 'keen', 'prime', 'grand', 'noble',
-  'vivid', 'pure', 'stark', 'rare', 'brave', 'wise', 'fair', 'fine', 'great',
-];
-const colors = [
-  'red', 'blue', 'green', 'gold', 'silver', 'bronze', 'amber', 'jade',
-  'ruby', 'coral', 'ivory', 'onyx', 'pearl', 'cyan', 'lime', 'pink',
-  'teal', 'plum', 'sage', 'rust', 'navy', 'olive', 'slate', 'crimson',
-];
-function generateRandomConfigName(tradingPair: string): string {
-  const adj = adjectives[Math.floor(Math.random() * adjectives.length)];
-  const color = colors[Math.floor(Math.random() * colors.length)];
-  const pair = tradingPair.toLowerCase().replace(/[^a-z0-9]/g, '');
-  return `${adj}-${color}-${pair}`;
-}
-
 const defaultFormData: GridStrikeFormData = {
-  id: generateRandomConfigName('BTC-USDC'),
+  id: generateConfigName(),
   connector_name: '',
   trading_pair: 'BTC-USDC',
   side: 'BUY',
@@ -157,10 +126,11 @@ function parsePositionMode(value: unknown): 'HEDGE' | 'ONEWAY' {
 
 export default function GridStrikeConfig() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editConfigId = searchParams.get('config');
+
   const [formData, setFormData] = useState<GridStrikeFormData>(defaultFormData);
-  const [existingConfigs, setExistingConfigs] = useState<ControllerConfig[]>([]);
-  const [editingConfig, setEditingConfig] = useState<string | null>(null);
-  const [mode, setMode] = useState<'create' | 'edit'>('create');
+  const [editingConfig, setEditingConfig] = useState<string | null>(editConfigId);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submittingAction, setSubmittingAction] = useState<'save' | 'deploy'>('save');
@@ -176,13 +146,6 @@ export default function GridStrikeConfig() {
   const [tradingPairList, setTradingPairList] = useState<string[]>([]);
   const [loadingTradingPairs, setLoadingTradingPairs] = useState(false);
 
-  // Delete dialog state
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [configToDelete, setConfigToDelete] = useState<string | null>(null);
-
-  // Refresh trigger
-  const [refreshKey, setRefreshKey] = useState(0);
-
   // Template field type
   interface TemplateField {
     default: unknown;
@@ -190,21 +153,20 @@ export default function GridStrikeConfig() {
     required: boolean;
   }
 
-  // Load existing configs, template, and connectors on mount
+  // Load connectors and optionally load config for editing
   useEffect(() => {
     async function loadData() {
       setLoading(true);
       try {
-        // Fetch all controller configs and filter for grid_strike
-        const [allConfigs, allConnectors] = await Promise.all([
-          controllers.listConfigs(),
-          connectors.list(),
-        ]);
-        const gridStrikeConfigs = allConfigs.filter(
-          (c) => c.controller_name === 'grid_strike'
-        );
-        setExistingConfigs(gridStrikeConfigs);
+        // Fetch connectors
+        const allConnectors = await connectors.list();
         setConnectorList(allConnectors);
+
+        // If editing, load the config
+        if (editConfigId) {
+          await loadConfigForEditing(editConfigId);
+          return;
+        }
 
         // Load template for defaults (only if not editing)
         if (!editingConfig) {
@@ -212,7 +174,7 @@ export default function GridStrikeConfig() {
           try {
             const template = await controllers.getConfigTemplate('generic', 'grid_strike') as Record<string, TemplateField>;
             const tradingPair = template?.trading_pair?.default ? String(template.trading_pair.default) : defaultFormData.trading_pair;
-            const newFormData = { ...defaultFormData, id: generateRandomConfigName(tradingPair), trading_pair: tradingPair };
+            const newFormData = { ...defaultFormData, id: generateConfigName(), trading_pair: tradingPair };
             if (template) {
               // Basic settings
               if (template.total_amount_quote?.default) newFormData.total_amount_quote = String(template.total_amount_quote.default);
@@ -248,7 +210,7 @@ export default function GridStrikeConfig() {
             setFormData(newFormData);
           } catch {
             // Template fetch failed, use defaults
-            setFormData({ ...defaultFormData, id: generateRandomConfigName(defaultFormData.trading_pair) });
+            setFormData({ ...defaultFormData, id: generateConfigName() });
           }
         }
       } catch (err) {
@@ -258,7 +220,7 @@ export default function GridStrikeConfig() {
       }
     }
     loadData();
-  }, [refreshKey, editingConfig]);
+  }, [editConfigId]);
 
   // Fetch trading pairs when connector changes
   useEffect(() => {
@@ -469,13 +431,6 @@ export default function GridStrikeConfig() {
     }
   }
 
-  function resetForm() {
-    setEditingConfig(null);
-    setFormData({ ...defaultFormData, id: generateRandomConfigName(defaultFormData.trading_pair) });
-    setCandles([]);
-    setRefreshKey((k) => k + 1);
-  }
-
   function updateField<K extends keyof GridStrikeFormData>(field: K, value: GridStrikeFormData[K]) {
     setFormData((prev) => ({ ...prev, [field]: value }));
   }
@@ -544,9 +499,9 @@ export default function GridStrikeConfig() {
 
       if (action === 'deploy') {
         // Navigate to deploy page with controller and config preselected
-        navigate(`/bots/deploy?controller=grid_strike&config=${encodeURIComponent(formData.id)}`);
+        navigate(`/bots/deploy?type=controller&strategy=grid_strike&config=${encodeURIComponent(formData.id)}`);
       } else {
-        resetForm();
+        navigate('/strategies');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save config');
@@ -555,33 +510,7 @@ export default function GridStrikeConfig() {
     }
   }
 
-  function openDeleteDialog(configId: string) {
-    setConfigToDelete(configId);
-    setDeleteDialogOpen(true);
-  }
-
-  async function handleDelete() {
-    if (!configToDelete) return;
-
-    try {
-      await controllers.deleteConfig(configToDelete);
-      toast.success(`Config "${configToDelete}" deleted`);
-
-      // If we were editing the deleted config, reset form
-      if (editingConfig === configToDelete) {
-        resetForm();
-      } else {
-        setRefreshKey((k) => k + 1);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete config');
-    } finally {
-      setDeleteDialogOpen(false);
-      setConfigToDelete(null);
-    }
-  }
-
-  if (loading && existingConfigs.length === 0) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="animate-spin text-primary" size={32} />
@@ -590,43 +519,25 @@ export default function GridStrikeConfig() {
   }
 
   return (
-    <div>
+    <div className="max-w-4xl">
       {/* Page Header */}
       <div className="mb-6">
+        <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate('/strategies')}>
+          <ArrowLeft size={16} className="mr-1" />
+          Back to Strategies
+        </Button>
         <div className="flex items-center gap-2 mb-2">
           <Zap size={24} className="text-primary" />
-          <h1 className="text-2xl font-bold text-foreground">Grid Strike</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            {editingConfig ? 'Edit' : 'Create'} Grid Strike Config
+          </h1>
         </div>
         <p className="text-muted-foreground text-sm">
-          Configure Grid Strike strategies for automated grid trading.
+          {editingConfig ? `Editing config "${editingConfig}"` : 'Configure a new Grid Strike strategy for automated grid trading.'}
         </p>
       </div>
 
-      {/* Mode Toggle */}
-      <ConfigModeToggle
-        mode={mode}
-        onModeChange={(newMode) => {
-          setMode(newMode);
-          if (newMode === 'create') {
-            resetForm();
-          }
-        }}
-      />
-
-      {/* Existing Configs - Only show in Edit mode */}
-      {mode === 'edit' && (
-        <ExistingConfigsList
-          configs={existingConfigs}
-          editingConfig={editingConfig}
-          onSelectConfig={loadConfigForEditing}
-          onDeleteConfig={openDeleteDialog}
-          icon={<Zap size={14} className="text-primary" />}
-        />
-      )}
-
-      {/* Form - Show when creating or when editing a selected config */}
-      {(mode === 'create' || (mode === 'edit' && editingConfig)) && (
-        <form className="max-w-4xl space-y-6">
+      <form className="space-y-6">
           {/* Market */}
           <Card>
             <CardHeader className="pb-3">
@@ -1060,24 +971,6 @@ export default function GridStrikeConfig() {
             onSaveAndDeploy={() => handleSubmit('deploy')}
           />
         </form>
-      )}
-
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Config</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete config "{configToDelete}"?
-              This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

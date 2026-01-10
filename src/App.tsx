@@ -6,9 +6,10 @@ import TradePage from './pages/TradePage';
 import ManageKeys from './pages/ManageKeys';
 import CreateConfig from './pages/CreateConfig';
 import GridStrikeConfig from './pages/GridStrikeConfig';
+import StrategiesPage from './pages/StrategiesPage';
+import BotsPage from './pages/BotsPage';
 import BotDetail from './pages/BotDetail';
 import DeployBot from './pages/DeployBot';
-import ArchivedBots from './pages/ArchivedBots';
 import AccountPage from './pages/AccountPage';
 import './index.css';
 
@@ -25,12 +26,13 @@ function App() {
             {/* Keys */}
             <Route path="keys" element={<ManageKeys />} />
             {/* Strategies */}
-            <Route path="controllers" element={<CreateConfig />} />
-            <Route path="controllers/grid-strike" element={<GridStrikeConfig />} />
+            <Route path="strategies" element={<StrategiesPage />} />
+            <Route path="strategies/config" element={<CreateConfig />} />
+            <Route path="strategies/grid-strike" element={<GridStrikeConfig />} />
             {/* Bots */}
+            <Route path="bots" element={<BotsPage />} />
             <Route path="bots/:botName" element={<BotDetail />} />
             <Route path="bots/deploy" element={<DeployBot />} />
-            <Route path="bots/archived" element={<ArchivedBots />} />
             {/* Account */}
             <Route path="account" element={<AccountPage />} />
           </Route>

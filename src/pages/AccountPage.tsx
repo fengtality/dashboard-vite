@@ -5,13 +5,35 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card';
 import { config } from '@/config';
 import { generateTelegramDeepLink, generateServerName } from '@/lib/deeplink';
 import { useAccount } from '@/components/account-provider';
-import { Send, Server, Loader2, User } from 'lucide-react';
+import { Send, Server, Loader2, User, HelpCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
-const PUBLIC_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'CondorHummingbot';
+// Field label with hover card for help text
+function FieldLabel({ htmlFor, children, help }: { htmlFor: string; children: React.ReactNode; help: string }) {
+  return (
+    <HoverCard openDelay={200} closeDelay={100}>
+      <HoverCardTrigger asChild>
+        <Label htmlFor={htmlFor} className="inline-flex items-center gap-1 cursor-help">
+          {children}
+          <HelpCircle size={12} className="text-muted-foreground" />
+        </Label>
+      </HoverCardTrigger>
+      <HoverCardContent side="top" align="start" className="w-64 text-sm">
+        {help}
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
+
+const PUBLIC_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'condor_tg_bot';
 
 export default function AccountPage() {
   const { account, setAccount, accountsList } = useAccount();
@@ -139,14 +161,15 @@ export default function AccountPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
-                <p className="text-muted-foreground">
-                  Connect your Telegram account to use the Condor bot for trading,
-                  portfolio monitoring, and notifications on mobile.
+                <p className="text-sm text-muted-foreground">
+                  Connect this API server to the Condor Telegram bot to deploy and manage your trading bots from anywhere.
                 </p>
 
-                {/* Condor Bot Name */}
+                {/* Condor Bot Username */}
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="botUsername">Condor Bot Name</Label>
+                  <FieldLabel htmlFor="botUsername" help="The Telegram username of the Condor bot you want to connect to. Use the default public bot or enter your own private Condor bot username.">
+                    Condor Bot Username
+                  </FieldLabel>
                   <div className="flex gap-2 items-center">
                     <Input
                       id="botUsername"
@@ -174,7 +197,9 @@ export default function AccountPage() {
 
                 {/* Server Name Input */}
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="serverName">Server Name</Label>
+                  <FieldLabel htmlFor="serverName" help="A unique name to identify this API server in Condor. This helps you manage multiple servers from the same Telegram bot.">
+                    Server Name
+                  </FieldLabel>
                   <Input
                     id="serverName"
                     value={serverName}

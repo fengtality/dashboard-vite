@@ -222,7 +222,10 @@ export interface StartBotRequest {
 }
 
 export const bots = {
-  getStatus: () => request<Record<string, BotStatus>>('/bot-orchestration/status'),
+  getStatus: async () => {
+    const response = await request<{ status: string; data: Record<string, BotStatus> }>('/bot-orchestration/status');
+    return response.data || {};
+  },
   getBotStatus: (botName: string) =>
     request<BotStatus>(`/bot-orchestration/${botName}/status`),
   getBotHistory: (botName: string) =>

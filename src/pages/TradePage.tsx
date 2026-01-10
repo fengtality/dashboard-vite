@@ -948,6 +948,19 @@ export default function TradePage({ type }: TradePageProps) {
                       </HoverCard>
                     )}
 
+                    {/* Spot price info */}
+                    {!isPerp && currentPrice && (
+                      <>
+                        <div className="w-px h-6 bg-border" />
+                        <div className="flex items-center gap-6 text-sm">
+                          <div className="flex flex-col">
+                            <span className="text-muted-foreground text-xs">Price</span>
+                            <span className="font-mono">{currentPrice.toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </>
+                    )}
+
                     {/* Perp funding info */}
                     {isPerp && fundingInfo && (
                       <>

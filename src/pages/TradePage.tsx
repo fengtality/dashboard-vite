@@ -561,6 +561,12 @@ export default function TradePage({ type }: TradePageProps) {
 
   // Fetch account data
   useEffect(() => {
+    // Clear previous data immediately when dependencies change
+    setBalances([]);
+    setActiveOrders(null);
+    setPositions(null);
+    setTrades(null);
+
     async function fetchData() {
       if (!account || !selectedConnector) {
         setLoading(false);
@@ -610,7 +616,8 @@ export default function TradePage({ type }: TradePageProps) {
     }
 
     fetchData();
-  }, [account, selectedConnector, isPerp]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [account, selectedConnector, type]);
 
   // Auto-calculate grid prices when candles change and in grid tab
   useEffect(() => {

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useAccount } from '@/components/account-provider';
 import { portfolio, trading, connectors, marketData, accounts, controllers } from '@/api/client';
 import type { PortfolioBalance, PaginatedResponse, TradingRule, TradeRequest } from '@/api/client';
-import { Loader2, Grid3X3, Activity, Settings, Rocket, RefreshCw, Info, Key, Star } from 'lucide-react';
+import { Loader2, Activity, Settings, Rocket, RefreshCw, Info, Key, Star } from 'lucide-react';
 import {
   Empty,
   EmptyHeader,
@@ -12,7 +12,6 @@ import {
   EmptyDescription,
   EmptyContent,
 } from '@/components/ui/empty';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -42,32 +41,9 @@ import {
 } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Slider } from '@/components/ui/slider';
-
-// Helper to check if connector is perpetual
-function isPerpetualConnector(name: string): boolean {
-  return name.endsWith('_perpetual') || name.endsWith('_perpetual_testnet');
-}
-
-// Helper to format connector name for display
-function formatConnectorName(name: string): string {
-  const isTestnet = name.endsWith('_testnet') || name.endsWith('_perpetual_testnet');
-
-  let displayName = name
-    .replace(/_perpetual_testnet$/, '')
-    .replace(/_perpetual$/, '')
-    .replace(/_testnet$/, '');
-
-  displayName = displayName
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-
-  if (isTestnet) {
-    displayName += ' Testnet';
-  }
-
-  return displayName;
-}
+import { formatConnectorName } from '@/lib/formatting';
+import { isPerpetualConnector } from '@/lib/connectors';
+import { BalancesTable, OrdersTable, TradesTable, PositionsTable } from '@/components/trade';
 
 // Helper to calculate price decimals from min_base_amount_increment
 // 0.00001 → 0, 0.0001 → 1, 0.001 → 2, 0.01 → 3, etc.
@@ -1916,255 +1892,36 @@ export default function TradePage({ type }: TradePageProps) {
 
           {/* Balances Tab */}
           <TabsContent value="balances">
-            <div className="flex justify-end mb-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={refreshBalances}
-                disabled={refreshingBalances}
-                className="h-7 px-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${refreshingBalances ? 'animate-spin' : ''}`} />
-              </Button>
-            </div>
-            {balances.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">No balances found</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left py-2 px-3 text-muted-foreground font-medium">Token</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">Units</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">Available</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">Price</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {balances
-                      .filter(b => b.units > 0)
-                      .sort((a, b) => b.value - a.value || b.units - a.units)
-                      .map((balance) => (
-                        <tr key={balance.token} className="border-b border-border hover:bg-muted/30">
-                          <td className="py-2 px-3 font-medium text-foreground">{balance.token}</td>
-                          <td className="py-2 px-3 text-right font-mono text-foreground">
-                            {balance.units.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
-                          </td>
-                          <td className="py-2 px-3 text-right font-mono text-muted-foreground">
-                            {balance.available_units.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
-                          </td>
-                          <td className="py-2 px-3 text-right font-mono text-muted-foreground">
-                            {balance.price > 0
-                              ? `$${balance.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 4 })}`
-                              : '—'}
-                          </td>
-                          <td className="py-2 px-3 text-right font-mono text-foreground">
-                            {balance.price > 0
-                              ? `$${balance.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                              : '—'}
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <BalancesTable
+              balances={balances}
+              refreshing={refreshingBalances}
+              onRefresh={refreshBalances}
+            />
           </TabsContent>
 
           {/* Orders Tab */}
           <TabsContent value="orders">
-            {!activeOrders || activeOrders.data.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">No active orders</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left py-2 px-3 text-muted-foreground font-medium">Time</th>
-                      <th className="text-left py-2 px-3 text-muted-foreground font-medium">Type</th>
-                      <th className="text-left py-2 px-3 text-muted-foreground font-medium">Pair</th>
-                      <th className="text-left py-2 px-3 text-muted-foreground font-medium">Direction</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">Size</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">Original Size</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">Order Value</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">Price</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground font-medium"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeOrders.data.map((order: Record<string, unknown>, i: number) => {
-                      const orderId = String(order.order_id || order.client_order_id || '');
-                      const connectorName = String(order.connector_name || selectedConnector || '');
-                      const pair = String(order.trading_pair || order.symbol || '-');
-                      const tradeType = String(order.trade_type || order.side || '').toUpperCase();
-                      const orderType = String(order.order_type || 'LIMIT');
-                      const amount = Number(order.amount || order.quantity || 0);
-                      const filledAmount = Number(order.filled_amount || order.filled || order.executed_quantity || 0);
-                      const price = Number(order.price || 0);
-                      const orderValue = amount * price;
-                      const isLong = tradeType === 'BUY';
-                      const createdAt = order.created_at || order.updated_at;
-                      const timeStr = createdAt
-                        ? new Date(String(createdAt)).toLocaleString('en-US', {
-                            month: 'numeric',
-                            day: 'numeric',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                            hour12: false,
-                          }).replace(',', ' -')
-                        : '-';
-
-                      return (
-                        <tr key={i} className="border-b border-border hover:bg-muted/30">
-                          <td className="py-2 px-3 text-muted-foreground whitespace-nowrap">{timeStr}</td>
-                          <td className="py-2 px-3">{orderType.charAt(0) + orderType.slice(1).toLowerCase()}</td>
-                          <td className="py-2 px-3 font-semibold">{pair}</td>
-                          <td className={`py-2 px-3 ${isLong ? 'text-green-500' : 'text-red-500'}`}>
-                            {isLong ? 'Long' : 'Short'}
-                          </td>
-                          <td className="py-2 px-3 text-right font-mono">{filledAmount.toFixed(2)}</td>
-                          <td className="py-2 px-3 text-right font-mono">{amount.toFixed(2)}</td>
-                          <td className="py-2 px-3 text-right font-mono">{orderValue.toFixed(2)} USD</td>
-                          <td className="py-2 px-3 text-right font-mono">{price.toFixed(2)}</td>
-                          <td className="py-2 px-3 text-right">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-red-500 hover:text-red-600 hover:bg-red-500/10"
-                              onClick={() => handleCancelOrder(orderId, connectorName)}
-                              disabled={cancellingOrderId === orderId}
-                            >
-                              {cancellingOrderId === orderId ? (
-                                <Loader2 className="animate-spin" size={14} />
-                              ) : (
-                                'Cancel'
-                              )}
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <OrdersTable
+              orders={activeOrders}
+              cancellingOrderId={cancellingOrderId}
+              onCancelOrder={handleCancelOrder}
+              selectedConnector={selectedConnector}
+            />
           </TabsContent>
 
           {/* Trades Tab */}
           <TabsContent value="trades">
-            {!trades || trades.data.length === 0 ? (
-              <p className="text-muted-foreground text-center py-4">No trades found</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="text-left py-2 px-3 text-muted-foreground font-medium">Time</th>
-                      <th className="text-left py-2 px-3 text-muted-foreground font-medium">Pair</th>
-                      <th className="text-left py-2 px-3 text-muted-foreground font-medium">Side</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">Price</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">Amount</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">Fee</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {trades.data.slice(0, 20).map((trade: Record<string, unknown>, i: number) => {
-                      const tradeType = String(trade.trade_type || trade.side || '-');
-                      const isBuy = tradeType.toUpperCase() === 'BUY';
-                      const feePaid = Number(trade.fee_paid || 0);
-                      const feeCurrency = String(trade.fee_currency || '');
-                      return (
-                        <tr key={String(trade.trade_id) || i} className="border-b border-border hover:bg-muted/30">
-                          <td className="py-2 px-3 text-muted-foreground">
-                            {trade.timestamp ? new Date(String(trade.timestamp)).toLocaleString() : '-'}
-                          </td>
-                          <td className="py-2 px-3 font-medium text-foreground">{String(trade.trading_pair || trade.symbol || '-')}</td>
-                          <td className="py-2 px-3">
-                            <Badge variant={isBuy ? 'default' : 'secondary'} className={isBuy ? 'bg-green-500' : 'bg-red-500'}>
-                              {tradeType}
-                            </Badge>
-                          </td>
-                          <td className="py-2 px-3 text-right font-mono">{Number(trade.price || 0).toFixed(4)}</td>
-                          <td className="py-2 px-3 text-right font-mono">{Number(trade.amount || trade.quantity || 0).toFixed(6)}</td>
-                          <td className="py-2 px-3 text-right font-mono text-muted-foreground">
-                            {feePaid > 0 ? `${feePaid.toFixed(6)} ${feeCurrency}` : '-'}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <TradesTable trades={trades} />
           </TabsContent>
 
           {/* Positions Tab (Perpetual only) */}
           {isPerp && (
             <TabsContent value="positions">
-              {!positions || positions.data.length === 0 ? (
-                <p className="text-muted-foreground text-center py-4">No open positions</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="text-left py-2 px-3 text-muted-foreground font-medium">Coin</th>
-                        <th className="text-right py-2 px-3 text-muted-foreground font-medium">Size</th>
-                        <th className="text-right py-2 px-3 text-muted-foreground font-medium">Position Value</th>
-                        <th className="text-right py-2 px-3 text-muted-foreground font-medium">Entry Price</th>
-                        <th className="text-right py-2 px-3 text-muted-foreground font-medium">Mark Price</th>
-                        <th className="text-right py-2 px-3 text-muted-foreground font-medium">PNL (ROE %)</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {positions.data.map((pos: Record<string, unknown>, i: number) => {
-                        const pair = String(pos.trading_pair || pos.symbol || '-');
-                        const baseSymbol = pair.split('-')[0];
-                        const side = String(pos.side || '').toUpperCase();
-                        const amount = Number(pos.amount || pos.size || 0);
-                        const entryPrice = Number(pos.entry_price || 0);
-                        const posLeverage = Number(pos.leverage || 1);
-                        const pnl = Number(pos.unrealized_pnl || 0);
-                        const markPrice = fundingInfo?.mark_price || currentPrice || entryPrice;
-                        const positionValue = Math.abs(amount) * markPrice;
-                        const initialMargin = positionValue / posLeverage;
-                        const roe = initialMargin > 0 ? (pnl / initialMargin) * 100 : 0;
-                        const isLong = side === 'LONG';
-
-                        return (
-                          <tr key={i} className="border-b border-border hover:bg-muted/30">
-                            <td className="py-2 px-3">
-                              <div className="flex items-center gap-2">
-                                <span className={`w-1 h-6 rounded ${isLong ? 'bg-green-500' : 'bg-red-500'}`} />
-                                <span className="font-semibold">{baseSymbol}</span>
-                                <span className="text-muted-foreground text-xs">{posLeverage}x</span>
-                              </div>
-                            </td>
-                            <td className="py-2 px-3 text-right font-mono">
-                              {Math.abs(amount).toFixed(2)} {baseSymbol}
-                            </td>
-                            <td className="py-2 px-3 text-right font-mono">
-                              {positionValue.toFixed(2)} USD
-                            </td>
-                            <td className="py-2 px-3 text-right font-mono">
-                              {entryPrice.toFixed(2)}
-                            </td>
-                            <td className="py-2 px-3 text-right font-mono">
-                              {markPrice.toFixed(2)}
-                            </td>
-                            <td className={`py-2 px-3 text-right font-mono ${pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                              {pnl >= 0 ? '+' : ''}{pnl.toFixed(2)} ({roe >= 0 ? '+' : ''}{roe.toFixed(1)}%)
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <PositionsTable
+                positions={positions}
+                markPrice={fundingInfo?.mark_price ?? null}
+                currentPrice={currentPrice}
+              />
             </TabsContent>
           )}
               </Tabs>

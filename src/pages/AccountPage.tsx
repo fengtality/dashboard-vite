@@ -2,36 +2,16 @@ import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from '@/components/ui/hover-card';
 import { config } from '@/config';
 import { generateTelegramDeepLink, generateServerName } from '@/lib/deeplink';
 import { useAccount } from '@/components/account-provider';
 import { cn } from '@/lib/utils';
-import { Send, Server, Loader2, User, HelpCircle, Star, X } from 'lucide-react';
+import { Send, Server, Loader2, User, Star, X } from 'lucide-react';
 import { toast } from 'sonner';
-
-// Field label with hover card for help text
-function FieldLabel({ htmlFor, children, help }: { htmlFor: string; children: React.ReactNode; help: string }) {
-  return (
-    <HoverCard openDelay={200} closeDelay={100}>
-      <HoverCardTrigger asChild>
-        <Label htmlFor={htmlFor} className="inline-flex items-center gap-1 cursor-help">
-          {children}
-          <HelpCircle size={12} className="text-muted-foreground" />
-        </Label>
-      </HoverCardTrigger>
-      <HoverCardContent side="top" align="start" className="w-64 text-sm">
-        {help}
-      </HoverCardContent>
-    </HoverCard>
-  );
-}
+import { FieldLabel } from '@/components/field-label';
+import { formatConnectorName } from '@/lib/formatting';
+import { isPerpetualConnector } from '@/lib/connectors';
 
 const PUBLIC_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'condor_tg_bot';
 
@@ -41,32 +21,6 @@ const sections = [
   { id: 'api-server', label: 'API Server', icon: Server },
   { id: 'telegram', label: 'Telegram Bot', icon: Send },
 ];
-
-// Helper to format connector name for display
-function formatConnectorName(name: string): string {
-  const isTestnet = name.endsWith('_testnet') || name.endsWith('_perpetual_testnet');
-
-  let displayName = name
-    .replace(/_perpetual_testnet$/, '')
-    .replace(/_perpetual$/, '')
-    .replace(/_testnet$/, '');
-
-  displayName = displayName
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-
-  if (isTestnet) {
-    displayName += ' Testnet';
-  }
-
-  return displayName;
-}
-
-// Helper to check if connector is perpetual
-function isPerpetualConnector(name: string): boolean {
-  return name.endsWith('_perpetual') || name.endsWith('_perpetual_testnet');
-}
 
 export default function AccountPage() {
   const [searchParams, setSearchParams] = useSearchParams();

@@ -7,28 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plug, Bot, Zap, Key, Rocket, Square } from 'lucide-react';
-
-function formatConnectorName(name: string): string {
-  let displayName = name
-    .replace(/_perpetual_testnet$/, '')
-    .replace(/_perpetual$/, '');
-  displayName = displayName
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-  return displayName;
-}
-
-function formatBotName(name: string): string {
-  return name
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
-
-function isPerpetualConnector(name: string): boolean {
-  return name.endsWith('_perpetual') || name.endsWith('_perpetual_testnet');
-}
+import { formatConnectorName, formatBotName } from '@/lib/formatting';
+import { isPerpetualConnector } from '@/lib/connectors';
 
 export default function Home() {
   const { account } = useAccount();

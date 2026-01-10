@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { connectors, accounts, portfolio } from '../api/client';
 import type { PortfolioBalance } from '../api/client';
 import { useAccount } from '@/components/account-provider';
+import { isPerpetualConnector } from '@/lib/connectors';
 import { Loader2, Plus, Trash2, Key, Wallet, RefreshCw, AlertCircle, Coins, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -201,10 +202,6 @@ export default function ManageKeys() {
       </div>
     );
   }
-
-  // Helper to check if connector is perpetual
-  const isPerpetualConnector = (name: string) =>
-    name.endsWith('_perpetual') || name.endsWith('_perpetual_testnet');
 
   // Helper to format field name for display (e.g., "ascend_ex_api_key" → "Api Key")
   const formatFieldLabel = (field: string, connector: string) => {

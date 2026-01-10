@@ -21,14 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
-// Helper to format bot name for display
-function formatBotName(name: string): string {
-  return name
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
+import { formatBotName } from '@/lib/formatting';
 
 export default function BotDetail() {
   const { botName } = useParams<{ botName: string }>();

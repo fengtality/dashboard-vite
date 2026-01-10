@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { SaveConfigCard } from '@/components/save-config-card';
+import { formatStrategyName } from '@/lib/formatting';
 
 interface TemplateField {
   default: unknown;
@@ -27,13 +28,6 @@ interface FormField {
   type: string;
   required: boolean;
   prompt?: string;
-}
-
-function formatStrategyName(name: string): string {
-  return name
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
 }
 
 export default function CreateConfig() {

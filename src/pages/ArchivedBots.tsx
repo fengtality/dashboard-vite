@@ -4,14 +4,13 @@ import type { ArchivedBot, PerformanceData } from '../api/client';
 import {
   Loader2,
   Archive,
-  TrendingUp,
-  TrendingDown,
   BarChart3,
   ChevronDown,
   ChevronRight,
   Activity,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { MetricCard } from '@/components/metric-card';
 
 export default function ArchivedBotsPage() {
   const [bots, setBots] = useState<ArchivedBot[]>([]);
@@ -187,59 +186,6 @@ export default function ArchivedBotsPage() {
           })}
         </div>
       )}
-    </div>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  format,
-}: {
-  label: string;
-  value: number | unknown;
-  format?: 'currency' | 'percent';
-}) {
-  const numValue = typeof value === 'number' ? value : 0;
-  const isPositive = numValue >= 0;
-
-  let displayValue: string;
-  if (format === 'currency') {
-    displayValue = `$${numValue.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
-  } else if (format === 'percent') {
-    displayValue = `${(numValue * 100).toFixed(2)}%`;
-  } else {
-    displayValue = typeof value === 'number' ? value.toLocaleString() : String(value);
-  }
-
-  return (
-    <div className="bg-card border border-border rounded-lg p-4">
-      <p className="text-xs text-muted-foreground uppercase mb-1">{label}</p>
-      <div className="flex items-center gap-2">
-        {format === 'currency' && (
-          <>
-            {isPositive ? (
-              <TrendingUp className="text-green-500" size={16} />
-            ) : (
-              <TrendingDown className="text-red-500" size={16} />
-            )}
-          </>
-        )}
-        <span
-          className={`text-lg font-semibold ${
-            format === 'currency'
-              ? isPositive
-                ? 'text-green-500'
-                : 'text-red-500'
-              : 'text-foreground'
-          }`}
-        >
-          {displayValue}
-        </span>
-      </div>
     </div>
   );
 }

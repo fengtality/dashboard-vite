@@ -43,39 +43,12 @@ import {
 import * as Collapsible from '@radix-ui/react-collapsible';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { formatStrategyName, formatType } from '@/lib/formatting';
 
 interface TemplateParam {
   default: unknown;
   type: string;
   required: boolean;
-}
-
-function formatStrategyName(name: string): string {
-  return name
-    .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-}
-
-function formatType(typeStr: string | undefined | null): string {
-  if (!typeStr) return 'unknown';
-  // Extract just the type name from "<class 'xxx'>" format
-  const match = typeStr.match(/<class '([^']+)'>/);
-  if (match) {
-    const typeName = match[1];
-    // Simplify common types
-    if (typeName === 'str') return 'string';
-    if (typeName === 'bool') return 'boolean';
-    if (typeName === 'int') return 'integer';
-    if (typeName === 'float' || typeName === 'decimal.Decimal') return 'number';
-    // Return last part of dotted names
-    return typeName.split('.').pop() || typeName;
-  }
-  // Handle typing.List[...] format
-  if (typeStr.startsWith('typing.')) {
-    return typeStr.replace('typing.', '');
-  }
-  return typeStr;
 }
 
 export default function StrategiesPage() {

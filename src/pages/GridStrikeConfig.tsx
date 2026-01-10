@@ -3,20 +3,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { controllers, marketData, connectors } from '../api/client';
 import { generateConfigName } from '@/lib/utils';
-import { Loader2, Zap, RefreshCw, HelpCircle, ArrowLeft } from 'lucide-react';
+import { Loader2, Zap, RefreshCw, ArrowLeft } from 'lucide-react';
 import { CandlestickChart } from '@/components/ui/candlestick-chart';
 import type { Candle } from '@/components/ui/candlestick-chart';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from '@/components/ui/hover-card';
 import {
   Select,
   SelectContent,
@@ -28,23 +22,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { Skeleton } from '@/components/ui/skeleton';
 import { TripleBarrierVisualization } from '@/components/triple-barrier-visualization';
 import { SaveConfigCard } from '@/components/save-config-card';
-
-// Field label with hover card for help text
-function FieldLabel({ htmlFor, children, help }: { htmlFor: string; children: React.ReactNode; help: string }) {
-  return (
-    <HoverCard openDelay={200} closeDelay={100}>
-      <HoverCardTrigger asChild>
-        <Label htmlFor={htmlFor} className="inline-flex items-center gap-1 cursor-help">
-          {children}
-          <HelpCircle size={12} className="text-muted-foreground" />
-        </Label>
-      </HoverCardTrigger>
-      <HoverCardContent side="top" align="start" className="w-64 text-sm">
-        {help}
-      </HoverCardContent>
-    </HoverCard>
-  );
-}
+import { FieldLabel } from '@/components/field-label';
 
 interface GridStrikeFormData {
   id: string;

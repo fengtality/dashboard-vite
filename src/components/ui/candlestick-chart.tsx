@@ -249,7 +249,7 @@ export function CandlestickChart({
     if (!chartReady || !candleSeriesRef.current || candles.length === 0) return;
 
     const chartData: CandlestickData<Time>[] = candles.map((c) => ({
-      time: (c.timestamp / 1000) as Time,
+      time: Math.floor(c.timestamp / 1000) as Time,
       open: c.open,
       high: c.high,
       low: c.low,
@@ -261,7 +261,7 @@ export function CandlestickChart({
     // Set volume data with colors based on candle direction
     if (volumeSeriesRef.current) {
       const volumeData: HistogramData<Time>[] = candles.map((c) => ({
-        time: (c.timestamp / 1000) as Time,
+        time: Math.floor(c.timestamp / 1000) as Time,
         value: c.volume,
         color: c.close >= c.open ? 'rgba(34, 197, 94, 0.5)' : 'rgba(239, 68, 68, 0.5)',
       }));
@@ -288,8 +288,8 @@ export function CandlestickChart({
     priceLineSeriesRef.current.clear();
 
     // Get time range from candles
-    const startTime = candles[0].timestamp / 1000;
-    const endTime = candles[candles.length - 1].timestamp / 1000;
+    const startTime = Math.floor(candles[0].timestamp / 1000);
+    const endTime = Math.floor(candles[candles.length - 1].timestamp / 1000);
 
     const lineStyleMap: Record<string, number> = {
       solid: 0,

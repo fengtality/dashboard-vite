@@ -9,6 +9,7 @@ import GridStrikeConfig from './pages/GridStrikeConfig';
 import BotDetail from './pages/BotDetail';
 import DeployBot from './pages/DeployBot';
 import ArchivedBots from './pages/ArchivedBots';
+import AccountPage from './pages/AccountPage';
 import './index.css';
 
 function App() {
@@ -30,6 +31,8 @@ function App() {
             <Route path="bots/:botName" element={<BotDetail />} />
             <Route path="bots/deploy" element={<DeployBot />} />
             <Route path="bots/archived" element={<ArchivedBots />} />
+            {/* Account */}
+            <Route path="account" element={<AccountPage />} />
           </Route>
         </Routes>
       </AccountProvider>

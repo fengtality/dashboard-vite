@@ -10,11 +10,11 @@ import {
   Archive,
   SlidersHorizontal,
   ChevronDown,
+  User,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/theme-provider';
-import { AccountSelector } from '@/components/account-selector';
 import { bots } from '@/api/client';
 import type { BotStatus } from '@/api/client';
 import { Button } from '@/components/ui/button';
@@ -180,9 +180,12 @@ export default function Layout() {
             <StrategiesDropdown />
           </nav>
 
-          {/* Right side - Account & Theme */}
+          {/* Right side - Account Settings & Theme */}
           <div className="ml-auto flex items-center gap-3">
-            <AccountSelector />
+            <NavLink to="/account" isActive={location.pathname === '/account'}>
+              <User size={16} className="mr-2" />
+              Account
+            </NavLink>
             <ThemeToggle />
           </div>
         </div>

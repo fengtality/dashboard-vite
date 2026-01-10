@@ -119,6 +119,7 @@ export default function TradePage({ type }: TradePageProps) {
   // Position mode state (perp only)
   const [positionMode, setPositionMode] = useState<'ONEWAY' | 'HEDGE'>('ONEWAY');
   const [togglingPositionMode, setTogglingPositionMode] = useState(false);
+  const [settingLeverage, setSettingLeverage] = useState(false);
 
   // Trade form state
   const [tradeType, setTradeType] = useState<'limit' | 'market'>('limit');
@@ -136,6 +137,7 @@ export default function TradePage({ type }: TradePageProps) {
   const [gridTakeProfit, setGridTakeProfit] = useState<string>('0.001');
   const [deploying, setDeploying] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
 
   const navigate = useNavigate();
 
@@ -331,14 +333,18 @@ export default function TradePage({ type }: TradePageProps) {
         const data = response as CandleResponse[];
         if (Array.isArray(data) && data.length > 0) {
           const parsedCandles: Candle[] = data
-            .map((c) => ({
-              timestamp: c.timestamp * 1000,
-              open: c.open,
-              high: c.high,
-              low: c.low,
-              close: c.close,
-              volume: c.volume,
-            }))
+            .map((c) => {
+              // Detect if timestamp is in milliseconds (13+ digits) or seconds (10 digits)
+              const timestampMs = c.timestamp > 9999999999 ? c.timestamp : c.timestamp * 1000;
+              return {
+                timestamp: timestampMs,
+                open: c.open,
+                high: c.high,
+                low: c.low,
+                close: c.close,
+                volume: c.volume,
+              };
+            })
             .sort((a, b) => a.timestamp - b.timestamp);
 
           setCandles(parsedCandles);
@@ -412,11 +418,10 @@ export default function TradePage({ type }: TradePageProps) {
     fetchPositionMode();
   }, [selectedConnector, account, isPerp]);
 
-  // Toggle position mode handler
-  async function handleTogglePositionMode() {
-    if (!selectedConnector || !account) return;
+  // Set position mode handler
+  async function handleSetPositionMode(newMode: 'ONEWAY' | 'HEDGE') {
+    if (!selectedConnector || !account || newMode === positionMode) return;
 
-    const newMode = positionMode === 'ONEWAY' ? 'HEDGE' : 'ONEWAY';
     setTogglingPositionMode(true);
     try {
       await trading.setPositionMode(account, selectedConnector, newMode);
@@ -428,6 +433,38 @@ export default function TradePage({ type }: TradePageProps) {
       setTogglingPositionMode(false);
     }
   }
+
+  // Set leverage handler
+  async function handleSetLeverage(newLeverage: number) {
+    if (!selectedConnector || !account || !selectedPair || !isPerp) return;
+
+    setSettingLeverage(true);
+    try {
+      await trading.setLeverage(account, selectedConnector, selectedPair, newLeverage);
+      setLeverage(newLeverage);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to set leverage');
+    } finally {
+      setSettingLeverage(false);
+    }
+  }
+
+  // Set initial leverage when trading pair is selected (perp only)
+  useEffect(() => {
+    if (!selectedConnector || !account || !selectedPair || !isPerp) return;
+
+    // Set default leverage of 5x when user lands on a new trading pair
+    async function setInitialLeverage() {
+      try {
+        await trading.setLeverage(account!, selectedConnector!, selectedPair, 5);
+        setLeverage(5);
+      } catch (err) {
+        console.error('Failed to set initial leverage:', err);
+      }
+    }
+
+    setInitialLeverage();
+  }, [selectedConnector, selectedPair, account, isPerp]);
 
   // Update funding countdown every second
   useEffect(() => {
@@ -560,11 +597,6 @@ export default function TradePage({ type }: TradePageProps) {
 
     setPlacingOrder(true);
     try {
-      // Set leverage for perp markets before placing order
-      if (isPerp) {
-        await trading.setLeverage(account, selectedConnector, selectedPair, leverage);
-      }
-
       const orderRequest: TradeRequest = {
         account_name: account,
         connector_name: selectedConnector,
@@ -589,6 +621,28 @@ export default function TradePage({ type }: TradePageProps) {
       toast.error(err instanceof Error ? err.message : 'Failed to place order');
     } finally {
       setPlacingOrder(false);
+    }
+  }
+
+  // Cancel an order
+  async function handleCancelOrder(orderId: string, connectorName: string) {
+    if (!account) return;
+
+    setCancellingOrderId(orderId);
+    try {
+      await trading.cancelOrder(account, connectorName, orderId);
+      toast.success('Order cancelled');
+
+      // Refresh active orders
+      const ordersResult = await trading.getActiveOrders({
+        account_names: [account],
+        connector_names: [selectedConnector || connectorName],
+      });
+      setActiveOrders(ordersResult);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to cancel order');
+    } finally {
+      setCancellingOrderId(null);
     }
   }
 
@@ -778,9 +832,9 @@ export default function TradePage({ type }: TradePageProps) {
           <ResizablePanelGroup direction="horizontal">
             {/* Chart Panel */}
             <ResizablePanel defaultSize={75} minSize={50}>
-              <div className="h-full p-4 flex flex-col">
+              <div className="h-full p-4 flex flex-col overflow-hidden">
                 {/* Tab Navigation with Pair & Price centered */}
-                <Tabs value={chartPanelTab} onValueChange={(v) => setChartPanelTab(v as 'orderbook' | 'chart')} className="flex-1 flex flex-col">
+                <Tabs value={chartPanelTab} onValueChange={(v) => setChartPanelTab(v as 'orderbook' | 'chart')} className="flex-1 flex flex-col min-h-0">
                   <div className="flex items-center justify-between mb-3">
                     <TabsList className="bg-background gap-1 border p-1 h-auto">
                       <TabsTrigger value="orderbook" className="text-xs px-3 py-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">Order Book</TabsTrigger>
@@ -833,7 +887,7 @@ export default function TradePage({ type }: TradePageProps) {
                   </div>
 
                   {/* Order Book Tab */}
-                  <TabsContent value="orderbook" className="flex-1 m-0 overflow-auto">
+                  <TabsContent value="orderbook" className="flex-1 m-0 min-h-0 overflow-auto">
                     {!selectedPair ? (
                       <div className="flex items-center justify-center h-full text-muted-foreground">
                         Select a trading pair
@@ -1056,7 +1110,7 @@ export default function TradePage({ type }: TradePageProps) {
                   </TabsContent>
 
                   {/* Chart Tab */}
-                  <TabsContent value="chart" className="flex-1 m-0 overflow-hidden relative">
+                  <TabsContent value="chart" className="flex-1 m-0 min-h-0 overflow-hidden relative">
                     {loadingCandles && (
                       <div className="absolute inset-0 z-10 flex flex-col gap-2 p-4 bg-background/80">
                         <Skeleton className="flex-1 w-full" />
@@ -1103,7 +1157,7 @@ export default function TradePage({ type }: TradePageProps) {
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button size="lg" className="flex-1 justify-center font-medium bg-accent text-accent-foreground hover:bg-accent/80 border border-border">
-                          {leverage}x
+                          {settingLeverage ? <Loader2 className="animate-spin" size={16} /> : `${leverage}x`}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-64" align="center">
@@ -1115,10 +1169,12 @@ export default function TradePage({ type }: TradePageProps) {
                           <Slider
                             value={[leverage]}
                             onValueChange={(v) => setLeverage(v[0])}
+                            onValueCommit={(v) => handleSetLeverage(v[0])}
                             min={1}
                             max={20}
                             step={1}
                             className="w-full"
+                            disabled={settingLeverage}
                           />
                           <div className="flex justify-between text-xs text-muted-foreground">
                             <span>1x</span>
@@ -1128,15 +1184,34 @@ export default function TradePage({ type }: TradePageProps) {
                         </div>
                       </PopoverContent>
                     </Popover>
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      className="flex-1 justify-center font-medium"
-                      onClick={handleTogglePositionMode}
-                      disabled={togglingPositionMode}
-                    >
-                      {togglingPositionMode ? <Loader2 className="animate-spin" size={16} /> : positionMode}
-                    </Button>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button size="lg" className="flex-1 justify-center font-medium bg-accent text-accent-foreground hover:bg-accent/80 border border-border">
+                          {togglingPositionMode ? <Loader2 className="animate-spin" size={16} /> : positionMode}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-48" align="center">
+                        <div className="space-y-2">
+                          <div className="text-sm font-medium mb-3">Position Mode</div>
+                          <Button
+                            variant={positionMode === 'ONEWAY' ? 'default' : 'outline'}
+                            className="w-full justify-center"
+                            onClick={() => handleSetPositionMode('ONEWAY')}
+                            disabled={togglingPositionMode}
+                          >
+                            ONEWAY
+                          </Button>
+                          <Button
+                            variant={positionMode === 'HEDGE' ? 'default' : 'outline'}
+                            className="w-full justify-center"
+                            onClick={() => handleSetPositionMode('HEDGE')}
+                            disabled={togglingPositionMode}
+                          >
+                            HEDGE
+                          </Button>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 )}
 
@@ -1430,27 +1505,72 @@ export default function TradePage({ type }: TradePageProps) {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border">
+                      <th className="text-left py-2 px-3 text-muted-foreground font-medium">Time</th>
+                      <th className="text-left py-2 px-3 text-muted-foreground font-medium">Type</th>
                       <th className="text-left py-2 px-3 text-muted-foreground font-medium">Pair</th>
-                      <th className="text-left py-2 px-3 text-muted-foreground font-medium">Side</th>
+                      <th className="text-left py-2 px-3 text-muted-foreground font-medium">Direction</th>
+                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">Size</th>
+                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">Original Size</th>
+                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">Order Value</th>
                       <th className="text-right py-2 px-3 text-muted-foreground font-medium">Price</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">Amount</th>
-                      <th className="text-right py-2 px-3 text-muted-foreground font-medium">Filled</th>
+                      <th className="text-right py-2 px-3 text-muted-foreground font-medium"></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {activeOrders.data.map((order: Record<string, unknown>, i: number) => (
-                      <tr key={i} className="border-b border-border hover:bg-muted/30">
-                        <td className="py-2 px-3 font-medium text-foreground">{String(order.trading_pair || order.symbol || '-')}</td>
-                        <td className="py-2 px-3">
-                          <Badge variant={String(order.side).toLowerCase() === 'buy' ? 'default' : 'secondary'}>
-                            {String(order.side || '-')}
-                          </Badge>
-                        </td>
-                        <td className="py-2 px-3 text-right font-mono">{Number(order.price || 0).toFixed(4)}</td>
-                        <td className="py-2 px-3 text-right font-mono">{Number(order.amount || order.quantity || 0).toFixed(4)}</td>
-                        <td className="py-2 px-3 text-right font-mono text-muted-foreground">{Number(order.filled || order.executed_quantity || 0).toFixed(4)}</td>
-                      </tr>
-                    ))}
+                    {activeOrders.data.map((order: Record<string, unknown>, i: number) => {
+                      const orderId = String(order.order_id || order.client_order_id || '');
+                      const connectorName = String(order.connector_name || selectedConnector || '');
+                      const pair = String(order.trading_pair || order.symbol || '-');
+                      const tradeType = String(order.trade_type || order.side || '').toUpperCase();
+                      const orderType = String(order.order_type || 'LIMIT');
+                      const amount = Number(order.amount || order.quantity || 0);
+                      const filledAmount = Number(order.filled_amount || order.filled || order.executed_quantity || 0);
+                      const price = Number(order.price || 0);
+                      const orderValue = amount * price;
+                      const isLong = tradeType === 'BUY';
+                      const createdAt = order.created_at || order.updated_at;
+                      const timeStr = createdAt
+                        ? new Date(String(createdAt)).toLocaleString('en-US', {
+                            month: 'numeric',
+                            day: 'numeric',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            hour12: false,
+                          }).replace(',', ' -')
+                        : '-';
+
+                      return (
+                        <tr key={i} className="border-b border-border hover:bg-muted/30">
+                          <td className="py-2 px-3 text-muted-foreground whitespace-nowrap">{timeStr}</td>
+                          <td className="py-2 px-3">{orderType.charAt(0) + orderType.slice(1).toLowerCase()}</td>
+                          <td className="py-2 px-3 font-semibold">{pair}</td>
+                          <td className={`py-2 px-3 ${isLong ? 'text-green-500' : 'text-red-500'}`}>
+                            {isLong ? 'Long' : 'Short'}
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono">{filledAmount.toFixed(2)}</td>
+                          <td className="py-2 px-3 text-right font-mono">{amount.toFixed(2)}</td>
+                          <td className="py-2 px-3 text-right font-mono">{orderValue.toFixed(2)} USD</td>
+                          <td className="py-2 px-3 text-right font-mono">{price.toFixed(2)}</td>
+                          <td className="py-2 px-3 text-right">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                              onClick={() => handleCancelOrder(orderId, connectorName)}
+                              disabled={cancellingOrderId === orderId}
+                            >
+                              {cancellingOrderId === orderId ? (
+                                <Loader2 className="animate-spin" size={14} />
+                              ) : (
+                                'Cancel'
+                              )}
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1505,29 +1625,56 @@ export default function TradePage({ type }: TradePageProps) {
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border">
-                        <th className="text-left py-2 px-3 text-muted-foreground font-medium">Pair</th>
-                        <th className="text-left py-2 px-3 text-muted-foreground font-medium">Side</th>
+                        <th className="text-left py-2 px-3 text-muted-foreground font-medium">Coin</th>
                         <th className="text-right py-2 px-3 text-muted-foreground font-medium">Size</th>
-                        <th className="text-right py-2 px-3 text-muted-foreground font-medium">Entry</th>
-                        <th className="text-right py-2 px-3 text-muted-foreground font-medium">PnL</th>
+                        <th className="text-right py-2 px-3 text-muted-foreground font-medium">Position Value</th>
+                        <th className="text-right py-2 px-3 text-muted-foreground font-medium">Entry Price</th>
+                        <th className="text-right py-2 px-3 text-muted-foreground font-medium">Mark Price</th>
+                        <th className="text-right py-2 px-3 text-muted-foreground font-medium">PNL (ROE %)</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {positions.data.map((pos: Record<string, unknown>, i: number) => (
-                        <tr key={i} className="border-b border-border hover:bg-muted/30">
-                          <td className="py-2 px-3 font-medium text-foreground">{String(pos.trading_pair || pos.symbol || '-')}</td>
-                          <td className="py-2 px-3">
-                            <Badge variant={String(pos.side).toLowerCase() === 'long' ? 'default' : 'secondary'}>
-                              {String(pos.side || '-')}
-                            </Badge>
-                          </td>
-                          <td className="py-2 px-3 text-right font-mono">{Number(pos.amount || pos.size || 0).toFixed(4)}</td>
-                          <td className="py-2 px-3 text-right font-mono">{Number(pos.entry_price || 0).toFixed(4)}</td>
-                          <td className={`py-2 px-3 text-right font-mono ${Number(pos.unrealized_pnl || 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                            {Number(pos.unrealized_pnl || 0).toFixed(2)}
-                          </td>
-                        </tr>
-                      ))}
+                      {positions.data.map((pos: Record<string, unknown>, i: number) => {
+                        const pair = String(pos.trading_pair || pos.symbol || '-');
+                        const baseSymbol = pair.split('-')[0];
+                        const side = String(pos.side || '').toUpperCase();
+                        const amount = Number(pos.amount || pos.size || 0);
+                        const entryPrice = Number(pos.entry_price || 0);
+                        const posLeverage = Number(pos.leverage || 1);
+                        const pnl = Number(pos.unrealized_pnl || 0);
+                        const markPrice = fundingInfo?.mark_price || currentPrice || entryPrice;
+                        const positionValue = Math.abs(amount) * markPrice;
+                        const initialMargin = positionValue / posLeverage;
+                        const roe = initialMargin > 0 ? (pnl / initialMargin) * 100 : 0;
+                        const isLong = side === 'LONG';
+
+                        return (
+                          <tr key={i} className="border-b border-border hover:bg-muted/30">
+                            <td className="py-2 px-3">
+                              <div className="flex items-center gap-2">
+                                <span className={`w-1 h-6 rounded ${isLong ? 'bg-green-500' : 'bg-red-500'}`} />
+                                <span className="font-semibold">{baseSymbol}</span>
+                                <span className="text-muted-foreground text-xs">{posLeverage}x</span>
+                              </div>
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono">
+                              {Math.abs(amount).toFixed(2)} {baseSymbol}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono">
+                              {positionValue.toFixed(2)} USD
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono">
+                              {entryPrice.toFixed(2)}
+                            </td>
+                            <td className="py-2 px-3 text-right font-mono">
+                              {markPrice.toFixed(2)}
+                            </td>
+                            <td className={`py-2 px-3 text-right font-mono ${pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                              {pnl >= 0 ? '+' : ''}{pnl.toFixed(2)} ({roe >= 0 ? '+' : ''}{roe.toFixed(1)}%)
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

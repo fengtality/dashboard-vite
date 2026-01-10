@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAccount } from '@/components/account-provider';
 import { portfolio, trading, connectors, marketData, accounts, controllers } from '@/api/client';
-import type { PortfolioBalance, PaginatedResponse, TradingRule } from '@/api/client';
+import type { PortfolioBalance, PaginatedResponse, TradingRule, TradeRequest } from '@/api/client';
 import { Loader2, Grid3X3, Activity, Settings, Rocket, RefreshCw, Info } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -96,7 +96,6 @@ export default function TradePage({ type }: TradePageProps) {
 
   // Market data state
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
-  const [priceChange24h, setPriceChange24h] = useState<number | null>(null);
 
   // Order book state - flexible type to handle different API formats
   const [orderBook, setOrderBook] = useState<{ bids: unknown[]; asks: unknown[] } | null>(null);
@@ -105,11 +104,7 @@ export default function TradePage({ type }: TradePageProps) {
   
   // Funding info state (perp only)
   const [fundingInfo, setFundingInfo] = useState<{ funding_rate: number; next_funding_time: number; mark_price: number; index_price: number } | null>(null);
-  const [loadingFunding, setLoadingFunding] = useState(false);
   const [fundingCountdown, setFundingCountdown] = useState<string>('');
-
-  // Keys state
-  const [hasKeys, setHasKeys] = useState<boolean>(false);
 
   // Connector selection state
   const [allConnectors, setAllConnectors] = useState<string[]>([]);
@@ -120,6 +115,10 @@ export default function TradePage({ type }: TradePageProps) {
 
   // Leverage state (shared between trade and grid)
   const [leverage, setLeverage] = useState<number>(5);
+
+  // Position mode state (perp only)
+  const [positionMode, setPositionMode] = useState<'ONEWAY' | 'HEDGE'>('ONEWAY');
+  const [togglingPositionMode, setTogglingPositionMode] = useState(false);
 
   // Trade form state
   const [tradeType, setTradeType] = useState<'limit' | 'market'>('limit');
@@ -136,6 +135,7 @@ export default function TradePage({ type }: TradePageProps) {
   const [gridMaxOrders, setGridMaxOrders] = useState<number>(2);
   const [gridTakeProfit, setGridTakeProfit] = useState<string>('0.001');
   const [deploying, setDeploying] = useState(false);
+  const [placingOrder, setPlacingOrder] = useState(false);
 
   const navigate = useNavigate();
 
@@ -152,7 +152,6 @@ export default function TradePage({ type }: TradePageProps) {
     setTradingPairs([]);
     setCandles([]);
     setCurrentPrice(null);
-    setPriceChange24h(null);
     setError(null);
     setChartError(null);
     setTradePrice('');
@@ -163,7 +162,6 @@ export default function TradePage({ type }: TradePageProps) {
     setOrderBook(null);
     setFundingInfo(null);
   }, [type]);
-  const displayName = selectedConnector ? formatConnectorName(selectedConnector) : '';
   const priceDecimals = getPriceDecimals(tradingRule?.min_base_amount_increment);
 
   // Fetch all connectors and connected connectors
@@ -188,7 +186,6 @@ export default function TradePage({ type }: TradePageProps) {
       try {
         const creds = await accounts.getCredentials(account);
         setConnectedConnectors(creds);
-        setHasKeys(selectedConnector ? creds.includes(selectedConnector) : false);
 
         // Auto-select first connected connector of this type if none selected
         if (!selectedConnector) {
@@ -201,7 +198,6 @@ export default function TradePage({ type }: TradePageProps) {
         }
       } catch {
         setConnectedConnectors([]);
-        setHasKeys(false);
       }
     }
     fetchConnectedConnectors();
@@ -276,10 +272,10 @@ export default function TradePage({ type }: TradePageProps) {
         trading_pair: selectedPair,
         depth: 10,
       });
-      const data = obResponse as Record<string, unknown>;
-      const bids = Array.isArray(data.bids) ? data.bids : [];
-      const asks = Array.isArray(data.asks) ? data.asks : [];
-      setOrderBook({ bids, asks });
+      setOrderBook({
+        bids: obResponse.bids || [],
+        asks: obResponse.asks || [],
+      });
     } catch (err) {
       console.error('Failed to fetch price/order book:', err);
     } finally {
@@ -291,7 +287,6 @@ export default function TradePage({ type }: TradePageProps) {
   useEffect(() => {
     if (!selectedConnector || !selectedPair) {
       setCurrentPrice(null);
-      setPriceChange24h(null);
       setOrderBook(null);
       return;
     }
@@ -372,18 +367,21 @@ export default function TradePage({ type }: TradePageProps) {
     }
 
     async function fetchFundingInfo() {
-      setLoadingFunding(true);
       try {
         const response = await marketData.getFundingInfo({
           connector_name: selectedConnector!,
           trading_pair: selectedPair,
         });
-        setFundingInfo(response);
+        // Map API response to our expected format
+        setFundingInfo({
+          funding_rate: response.rate ?? response.funding_rate ?? 0,
+          next_funding_time: response.next_funding_utc_timestamp ?? response.next_funding_time ?? 0,
+          mark_price: response.mark_price ?? 0,
+          index_price: response.index_price ?? 0,
+        });
       } catch (err) {
         console.error('Failed to fetch funding info:', err);
         setFundingInfo(null);
-      } finally {
-        setLoadingFunding(false);
       }
     }
 
@@ -392,6 +390,44 @@ export default function TradePage({ type }: TradePageProps) {
     const interval = setInterval(fetchFundingInfo, 30000);
     return () => clearInterval(interval);
   }, [selectedConnector, selectedPair, isPerp]);
+
+  // Fetch position mode when connector changes (perp only)
+  useEffect(() => {
+    if (!selectedConnector || !account || !isPerp) {
+      return;
+    }
+
+    async function fetchPositionMode() {
+      try {
+        const response = await trading.getPositionMode(account!, selectedConnector!);
+        const mode = response.position_mode as 'ONEWAY' | 'HEDGE';
+        if (mode === 'ONEWAY' || mode === 'HEDGE') {
+          setPositionMode(mode);
+        }
+      } catch (err) {
+        console.error('Failed to fetch position mode:', err);
+      }
+    }
+
+    fetchPositionMode();
+  }, [selectedConnector, account, isPerp]);
+
+  // Toggle position mode handler
+  async function handleTogglePositionMode() {
+    if (!selectedConnector || !account) return;
+
+    const newMode = positionMode === 'ONEWAY' ? 'HEDGE' : 'ONEWAY';
+    setTogglingPositionMode(true);
+    try {
+      await trading.setPositionMode(account, selectedConnector, newMode);
+      setPositionMode(newMode);
+      toast.success(`Position mode changed to ${newMode}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to change position mode');
+    } finally {
+      setTogglingPositionMode(false);
+    }
+  }
 
   // Update funding countdown every second
   useEffect(() => {
@@ -503,6 +539,59 @@ export default function TradePage({ type }: TradePageProps) {
     }
   }, [currentPrice, selectedPair]);
 
+  // Place a trade order
+  async function handlePlaceOrder(side: 'BUY' | 'SELL') {
+    if (!selectedConnector || !selectedPair || !account) {
+      toast.error('Please select a trading pair and account');
+      return;
+    }
+
+    const amount = parseFloat(tradeAmount);
+    if (!amount || amount <= 0) {
+      toast.error('Please enter a valid amount');
+      return;
+    }
+
+    const price = parseFloat(tradePrice);
+    if (tradeType === 'limit' && (!price || price <= 0)) {
+      toast.error('Please enter a valid price for limit order');
+      return;
+    }
+
+    setPlacingOrder(true);
+    try {
+      // Set leverage for perp markets before placing order
+      if (isPerp) {
+        await trading.setLeverage(account, selectedConnector, selectedPair, leverage);
+      }
+
+      const orderRequest: TradeRequest = {
+        account_name: account,
+        connector_name: selectedConnector,
+        trading_pair: selectedPair,
+        trade_type: side,
+        order_type: tradeType === 'limit' ? 'LIMIT' : 'MARKET',
+        amount: amount,
+        ...(tradeType === 'limit' && { price }),
+        ...(isPerp && { position_action: 'OPEN' }),
+      };
+
+      const response = await trading.placeOrder(orderRequest);
+      toast.success(`${side} order placed successfully (ID: ${response.order_id})`);
+
+      // Refresh active orders
+      const ordersResult = await trading.getActiveOrders({
+        account_names: [account],
+        connector_names: [selectedConnector],
+      });
+      setActiveOrders(ordersResult);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to place order');
+    } finally {
+      setPlacingOrder(false);
+    }
+  }
+
   // Generate random config name
   function generateConfigName(): string {
     const adjectives = ['swift', 'bold', 'calm', 'bright', 'quick', 'wild', 'gentle', 'fierce'];
@@ -565,9 +654,9 @@ export default function TradePage({ type }: TradePageProps) {
 
   // Build price lines for chart when in grid tab
   const chartPriceLines: PriceLine[] = actionTab === 'grid' ? [
-    { id: 'start', price: parseFloat(gridStartPrice) || 0, color: '#22c55e', title: 'Start', lineStyle: 'dashed', draggable: true },
-    { id: 'end', price: parseFloat(gridEndPrice) || 0, color: '#3b82f6', title: 'End', lineStyle: 'dashed', draggable: true },
-    { id: 'limit', price: parseFloat(gridLimitPrice) || 0, color: '#ef4444', title: 'Limit', lineStyle: 'solid', draggable: true },
+    { id: 'start', price: parseFloat(gridStartPrice) || 0, color: '#22c55e', title: 'Start', lineStyle: 'dashed' as const, draggable: true },
+    { id: 'end', price: parseFloat(gridEndPrice) || 0, color: '#3b82f6', title: 'End', lineStyle: 'dashed' as const, draggable: true },
+    { id: 'limit', price: parseFloat(gridLimitPrice) || 0, color: '#ef4444', title: 'Limit', lineStyle: 'solid' as const, draggable: true },
   ].filter(l => l.price > 0) : [];
 
   return (
@@ -857,7 +946,7 @@ export default function TradePage({ type }: TradePageProps) {
                                   {/* Chart - bids on left, asks on right */}
                                   <div className="flex-1 flex items-end gap-px">
                                     {/* Bids (sorted so highest bid is near center) */}
-                                    {[...(orderBookCumulative ? cumulativeBids : depthBids)].reverse().map((d, i) => {
+                                    {[...cumulativeBids].reverse().map((d, i) => {
                                       const displayQty = orderBookCumulative ? d.cumQty : d.qty;
                                       const height = maxQty > 0 ? (displayQty / maxQty) * 100 : 0;
                                       return (
@@ -872,7 +961,7 @@ export default function TradePage({ type }: TradePageProps) {
                                     {/* Center gap */}
                                     <div className="w-1 h-full bg-border" />
                                     {/* Asks (sorted so lowest ask is near center) */}
-                                    {(orderBookCumulative ? cumulativeAsks : depthAsks).map((d, i) => {
+                                    {cumulativeAsks.map((d, i) => {
                                       const displayQty = orderBookCumulative ? d.cumQty : d.qty;
                                       const height = maxQty > 0 ? (displayQty / maxQty) * 100 : 0;
                                       return (
@@ -1008,12 +1097,12 @@ export default function TradePage({ type }: TradePageProps) {
             {/* Actions Panel */}
             <ResizablePanel defaultSize={25} minSize={20} maxSize={40}>
               <div className="h-full p-4 overflow-y-auto">
-                {/* Leverage setting (perp only) */}
+                {/* Leverage and Position Mode settings (perp only) */}
                 {isPerp && (
-                  <div className="mb-4">
+                  <div className="flex gap-2 mb-4">
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button size="lg" className="w-full justify-center font-medium bg-accent text-accent-foreground hover:bg-accent/80 border border-border">
+                        <Button size="lg" className="flex-1 justify-center font-medium bg-accent text-accent-foreground hover:bg-accent/80 border border-border">
                           {leverage}x
                         </Button>
                       </PopoverTrigger>
@@ -1039,6 +1128,15 @@ export default function TradePage({ type }: TradePageProps) {
                         </div>
                       </PopoverContent>
                     </Popover>
+                    <Button
+                      size="lg"
+                      variant="outline"
+                      className="flex-1 justify-center font-medium"
+                      onClick={handleTogglePositionMode}
+                      disabled={togglingPositionMode}
+                    >
+                      {togglingPositionMode ? <Loader2 className="animate-spin" size={16} /> : positionMode}
+                    </Button>
                   </div>
                 )}
 
@@ -1096,17 +1194,19 @@ export default function TradePage({ type }: TradePageProps) {
                     <div className="flex gap-2 pt-2">
                       <Button
                         className="flex-1 bg-green-600 hover:bg-green-700"
-                        disabled={!selectedPair}
+                        disabled={!selectedPair || placingOrder}
                         size="sm"
+                        onClick={() => handlePlaceOrder('BUY')}
                       >
-                        Buy
+                        {placingOrder ? <Loader2 className="animate-spin" size={14} /> : 'Buy'}
                       </Button>
                       <Button
                         className="flex-1 bg-red-600 hover:bg-red-700"
-                        disabled={!selectedPair}
+                        disabled={!selectedPair || placingOrder}
                         size="sm"
+                        onClick={() => handlePlaceOrder('SELL')}
                       >
-                        Sell
+                        {placingOrder ? <Loader2 className="animate-spin" size={14} /> : 'Sell'}
                       </Button>
                     </div>
                   </TabsContent>

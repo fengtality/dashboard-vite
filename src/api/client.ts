@@ -374,11 +374,11 @@ export interface TradeRequest {
   account_name: string;
   connector_name: string;
   trading_pair: string;
-  side: 'buy' | 'sell';
-  order_type: string;
+  trade_type: 'BUY' | 'SELL';
+  order_type: 'LIMIT' | 'MARKET';
   amount: number;
   price?: number;
-  [key: string]: unknown;
+  position_action?: 'OPEN' | 'CLOSE';
 }
 
 export interface TradeResponse {

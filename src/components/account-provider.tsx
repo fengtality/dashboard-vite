@@ -31,11 +31,11 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const [accountsList, setAccountsList] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [timezone, setTimezoneState] = useState<string>(() => {
-    const stored = localStorage.getItem('hummingbot-timezone');
+    const stored = localStorage.getItem('condor-timezone');
     return stored || getLocalTimezone();
   });
   const [favorites, setFavoritesState] = useState<FavoritePair[]>(() => {
-    const stored = localStorage.getItem('hummingbot-favorites');
+    const stored = localStorage.getItem('condor-favorites');
     return stored ? JSON.parse(stored) : [];
   });
 
@@ -45,7 +45,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         const list = await accounts.list();
         setAccountsList(list);
         // Restore from localStorage or use first account
-        const stored = localStorage.getItem('hummingbot-selected-account');
+        const stored = localStorage.getItem('condor-selected-account');
         if (stored && list.includes(stored)) {
           setAccountState(stored);
         } else if (list.length > 0) {
@@ -62,24 +62,24 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   function setAccount(newAccount: string) {
     setAccountState(newAccount);
-    localStorage.setItem('hummingbot-selected-account', newAccount);
+    localStorage.setItem('condor-selected-account', newAccount);
   }
 
   function setTimezone(tz: string) {
     setTimezoneState(tz);
-    localStorage.setItem('hummingbot-timezone', tz);
+    localStorage.setItem('condor-timezone', tz);
   }
 
   function addFavorite(connector: string, pair: string) {
     const newFavorites = [...favorites, { connector, pair }];
     setFavoritesState(newFavorites);
-    localStorage.setItem('hummingbot-favorites', JSON.stringify(newFavorites));
+    localStorage.setItem('condor-favorites', JSON.stringify(newFavorites));
   }
 
   function removeFavorite(connector: string, pair: string) {
     const newFavorites = favorites.filter(f => !(f.connector === connector && f.pair === pair));
     setFavoritesState(newFavorites);
-    localStorage.setItem('hummingbot-favorites', JSON.stringify(newFavorites));
+    localStorage.setItem('condor-favorites', JSON.stringify(newFavorites));
   }
 
   function isFavorite(connector: string, pair: string) {

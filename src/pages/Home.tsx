@@ -43,7 +43,7 @@ export default function Home() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">Welcome to Hummingbot Dashboard</p>
+        <p className="text-muted-foreground">Welcome to Condor Dashboard</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

@@ -7,7 +7,7 @@ import App from './App.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <ThemeProvider defaultTheme="dark" storageKey="hummingbot-ui-theme">
+    <ThemeProvider defaultTheme="dark" storageKey="condor-ui-theme">
       <App />
       <Toaster />
     </ThemeProvider>

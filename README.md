@@ -1,6 +1,6 @@
-# Hummingbot Dashboard (Vite)
+# Condor Dashboard
 
-A modern, browser-based dashboard for managing [Hummingbot](https://hummingbot.org/) trading bots. This is a JavaScript/TypeScript re-implementation of the original [Hummingbot Dashboard](https://github.com/hummingbot/dashboard) built with Vite, React, and shadcn/ui.
+A modern, browser-based dashboard for managing trading bots powered by [Hummingbot](https://hummingbot.org/). Condor Dashboard syncs with the Condor Telegram Bot for mobile monitoring and control.
 
 ## Overview
 
@@ -24,7 +24,7 @@ This dashboard provides a frontend interface for the Hummingbot Backend API serv
 ## Prerequisites
 
 - Node.js 20.19+ or 22.12+
-- A running [Hummingbot Backend API](https://github.com/hummingbot/backend-api) server
+- A running [Hummingbot Backend API](https://github.com/hummingbot/hummingbot-api) server
 
 ## Getting Started
 
@@ -32,8 +32,8 @@ This dashboard provides a frontend interface for the Hummingbot Backend API serv
 
 ```bash
 # Clone the repository
-git clone https://github.com/hummingbot/dashboard.git
-cd dashboard
+git clone https://github.com/fengtality/dashboard-vite.git
+cd dashboard-vite
 
 # Install dependencies
 npm install

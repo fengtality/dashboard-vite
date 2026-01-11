@@ -2,6 +2,7 @@ import { Link, useLocation, Outlet } from 'react-router-dom';
 import {
   Key,
   Plug,
+  Bird,
   Bot,
   Zap,
   Sun,
@@ -50,8 +51,8 @@ export default function Layout() {
         <div className="flex h-14 items-center px-6">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 mr-6">
-            <Bot size={24} className="text-primary" />
-            <span className="text-lg font-bold">Hummingbot</span>
+            <Bird size={24} className="text-primary" />
+            <span className="text-lg font-bold">Condor</span>
           </Link>
 
           {/* Navigation */}
@@ -107,7 +108,7 @@ export default function Layout() {
             </span>
             <span>API: localhost:8000</span>
           </div>
-          <span>Hummingbot Dashboard v1.0</span>
+          <span>Condor Dashboard v1.0</span>
         </div>
       </footer>
     </div>

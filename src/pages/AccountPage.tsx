@@ -76,10 +76,11 @@ export default function AccountPage() {
     setGatewayLoading(true);
     try {
       const status = await gateway.getStatus();
-      setGatewayStatus(status.status === 'running' ? 'running' : 'stopped');
+      const isRunning = status.running === true || status.status === 'running';
+      setGatewayStatus(isRunning ? 'running' : 'stopped');
       setGatewayVersion(status.gateway_version || null);
 
-      if (status.status === 'running') {
+      if (isRunning) {
         // Fetch networks and wallets
         const [networksRes, walletsRes] = await Promise.all([
           gateway.listNetworks().catch(() => ({ networks: [] })),

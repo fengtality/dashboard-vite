@@ -685,7 +685,12 @@ export const marketData = {
 
 // Gateway Router - Server Management
 export interface GatewayStatus {
-  status: string;
+  running?: boolean;
+  status?: string;
+  container_id?: string;
+  image?: string;
+  created_at?: string;
+  port?: number;
   gateway_version?: string;
   [key: string]: unknown;
 }

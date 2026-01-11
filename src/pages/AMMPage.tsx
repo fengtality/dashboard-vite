@@ -114,7 +114,7 @@ export default function AMMPage() {
       setLoadingGateway(true);
       try {
         const status = await gateway.getStatus();
-        const running = status.status === 'running';
+        const running = status.running === true || status.status === 'running';
         setGatewayRunning(running);
 
         if (running) {

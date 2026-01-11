@@ -137,15 +137,15 @@ export default function BotDetail() {
     <div className="max-w-6xl">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
+        <div className="flex flex-wrap items-center gap-2 md:gap-3 mb-2">
           <Link to="/bots/deploy">
             <Button variant="ghost" size="icon" className="h-8 w-8">
               <ArrowLeft size={18} />
             </Button>
           </Link>
-          <Bot size={24} className={isRunning ? 'text-success' : 'text-muted-foreground'} />
-          <h1 className="text-2xl font-bold text-foreground">{displayName}</h1>
-          <Badge variant={isRunning ? 'default' : 'secondary'}>
+          <Bot size={20} className={isRunning ? 'text-success' : 'text-muted-foreground'} />
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">{displayName}</h1>
+          <Badge variant={isRunning ? 'default' : 'secondary'} className="text-xs">
             <span className="flex items-center gap-1">
               {isRunning ? (
                 <>
@@ -161,8 +161,8 @@ export default function BotDetail() {
             </span>
           </Badge>
         </div>
-        <p className="text-muted-foreground">
-          Bot: <code className="text-sm bg-muted px-1.5 py-0.5 rounded">{botName}</code>
+        <p className="text-sm text-muted-foreground truncate">
+          Bot: <code className="text-xs md:text-sm bg-muted px-1.5 py-0.5 rounded">{botName}</code>
         </p>
       </div>
 
@@ -173,9 +173,9 @@ export default function BotDetail() {
       )}
 
       {/* Action Buttons */}
-      <div className="flex items-center gap-2 mb-6">
+      <div className="flex flex-wrap items-center gap-2 mb-6">
         {actionLoading ? (
-          <Button disabled>
+          <Button disabled size="sm">
             <Loader2 className="animate-spin mr-2" size={16} />
             Processing...
           </Button>
@@ -184,30 +184,33 @@ export default function BotDetail() {
             {!isRunning && (
               <Button
                 onClick={handleStart}
+                size="sm"
                 className="bg-success hover:bg-success/90"
               >
-                <Play className="mr-2" size={16} />
-                Start Bot
+                <Play className="sm:mr-2" size={16} />
+                <span className="hidden sm:inline">Start Bot</span>
               </Button>
             )}
             {isRunning && (
               <Button
                 variant="outline"
+                size="sm"
                 onClick={handleStop}
                 className="text-warning hover:text-warning/80 hover:bg-warning/10"
               >
-                <Square className="mr-2" size={16} />
-                Stop Bot
+                <Square className="sm:mr-2" size={16} />
+                <span className="hidden sm:inline">Stop Bot</span>
               </Button>
             )}
             <Button
               variant="outline"
+              size="sm"
               onClick={handleStopAndArchive}
             >
-              <Archive className="mr-2" size={16} />
-              Stop & Archive
+              <Archive className="sm:mr-2" size={16} />
+              <span className="hidden sm:inline">Archive</span>
             </Button>
-            <Button variant="ghost" onClick={fetchData}>
+            <Button variant="ghost" size="sm" onClick={fetchData}>
               <RefreshCw size={16} />
             </Button>
           </>
@@ -267,11 +270,19 @@ export default function BotDetail() {
 
       {/* Tabs for different views */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="controllers">Controllers ({botConfigs.length})</TabsTrigger>
-          <TabsTrigger value="history">History ({botHistory.length})</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
+        <TabsList className="flex-wrap h-auto gap-1">
+          <TabsTrigger value="overview" className="text-xs sm:text-sm">Overview</TabsTrigger>
+          <TabsTrigger value="controllers" className="text-xs sm:text-sm">
+            <span className="hidden sm:inline">Controllers</span>
+            <span className="sm:hidden">Ctrl</span>
+            <span className="ml-1">({botConfigs.length})</span>
+          </TabsTrigger>
+          <TabsTrigger value="history" className="text-xs sm:text-sm">
+            <span className="hidden sm:inline">History</span>
+            <span className="sm:hidden">Hist</span>
+            <span className="ml-1">({botHistory.length})</span>
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="text-xs sm:text-sm">Settings</TabsTrigger>
         </TabsList>
 
         {/* Overview Tab */}

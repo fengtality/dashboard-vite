@@ -327,8 +327,8 @@ export default function StrategiesPage() {
 
       {/* Strategy Selector */}
       <div className="pb-4 mb-4 border-b border-border">
-        <div className="flex items-center gap-4">
-          <div className="w-48">
+        <div className="flex flex-wrap items-end gap-3 md:gap-4">
+          <div className="w-36 md:w-48">
             <Label htmlFor="select-type" className="text-xs text-muted-foreground mb-1.5 block">Strategy Type</Label>
             <Select value={selectedType} onValueChange={setSelectedType}>
               <SelectTrigger id="select-type">
@@ -343,7 +343,7 @@ export default function StrategiesPage() {
               </SelectContent>
             </Select>
           </div>
-          <div className="w-56">
+          <div className="w-40 md:w-56">
             <Label htmlFor="select-strategy" className="text-xs text-muted-foreground mb-1.5 block">Strategy</Label>
             <Select value={selectedStrategy} onValueChange={setSelectedStrategy}>
               <SelectTrigger id="select-strategy">
@@ -364,13 +364,13 @@ export default function StrategiesPage() {
       {/* Selected Strategy Details */}
       {selectedStrategy && (
         <div>
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-primary/10">
                 <Zap size={20} className="text-primary" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold">{formatStrategyName(selectedStrategy)}</h2>
+                <h2 className="text-base md:text-lg font-semibold">{formatStrategyName(selectedStrategy)}</h2>
                 <p className="text-sm text-muted-foreground">{selectedType}</p>
               </div>
             </div>
@@ -384,24 +384,25 @@ export default function StrategiesPage() {
               />
               <Button
                 variant="outline"
+                size="sm"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploading}
               >
                 {uploading ? (
-                  <Loader2 size={16} className="mr-1 animate-spin" />
+                  <Loader2 size={16} className="animate-spin" />
                 ) : (
-                  <Upload size={16} className="mr-1" />
+                  <Upload size={16} />
                 )}
-                Upload
+                <span className="hidden sm:inline ml-1">Upload</span>
               </Button>
-              <Button onClick={handleCreateConfig}>
-                <Plus size={16} className="mr-1" />
-                New Config
+              <Button size="sm" onClick={handleCreateConfig}>
+                <Plus size={16} />
+                <span className="hidden sm:inline ml-1">New Config</span>
               </Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Parameters Table */}
             <div>
               <div className="text-sm font-medium text-muted-foreground mb-3">

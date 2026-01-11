@@ -523,7 +523,7 @@ export default function GridStrikeConfig() {
               <CardDescription>Exchange connector and trading pair</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <FieldLabel htmlFor="connector_name" help="The exchange connector name to use for trading (e.g., binance_perpetual, kucoin_perpetual).">Connector</FieldLabel>
                   <Combobox
@@ -630,7 +630,7 @@ export default function GridStrikeConfig() {
               <p className="text-xs text-muted-foreground">
                 Drag price lines to adjust values
               </p>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
                   <FieldLabel htmlFor="start_price" help="The price where the grid begins placing orders. For BUY grids, this is typically the lower bound.">Start Price</FieldLabel>
                   <Input
@@ -672,7 +672,7 @@ export default function GridStrikeConfig() {
               <CardDescription>Size and leverage settings</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <FieldLabel htmlFor="total_amount_quote" help="Total position size in quote currency (e.g., USDT). This is distributed across all grid levels.">Total Amount (Quote)</FieldLabel>
                   <Input
@@ -705,7 +705,7 @@ export default function GridStrikeConfig() {
               <CardDescription>Order limits and timing</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <FieldLabel htmlFor="max_open_orders" help="Maximum number of open orders at any time. Limits exposure and exchange rate limits.">Max Open Orders</FieldLabel>
                   <Input
@@ -786,7 +786,7 @@ export default function GridStrikeConfig() {
                 }}
               />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <FieldLabel htmlFor="take_profit" help="Profit target as decimal (e.g., 0.01 = 1%). Position closes when this profit is reached.">Take Profit</FieldLabel>
                   <Input
@@ -890,7 +890,7 @@ export default function GridStrikeConfig() {
               <CardDescription>Additional behavior options</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <FieldLabel htmlFor="position_mode" help="Exchange position mode. Hedge allows both long/short positions simultaneously. One-Way only allows one direction.">Position Mode</FieldLabel>
                   <Select value={formData.position_mode} onValueChange={(v) => updateField('position_mode', v as 'HEDGE' | 'ONEWAY')}>

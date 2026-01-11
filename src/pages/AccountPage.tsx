@@ -86,9 +86,31 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="flex -mt-6 -ml-6 min-h-[calc(100vh-theme(spacing.14)-theme(spacing.10))]">
-      {/* Left Sidebar */}
-      <div className="w-56 shrink-0 p-6 border-r border-border">
+    <div className="flex flex-col md:flex-row -mt-4 md:-mt-6 -mx-4 md:-ml-6 md:mr-0 min-h-[calc(100vh-theme(spacing.14)-theme(spacing.10))]">
+      {/* Mobile Section Tabs */}
+      <div className="md:hidden px-4 pb-4 border-b border-border">
+        <h1 className="text-lg font-semibold mb-3">Settings</h1>
+        <div className="flex gap-1 overflow-x-auto pb-1">
+          {sections.map((section) => (
+            <button
+              key={section.id}
+              onClick={() => setActiveSection(section.id)}
+              className={cn(
+                'flex items-center gap-1.5 px-3 py-2 text-xs rounded-md whitespace-nowrap transition-colors',
+                activeSection === section.id
+                  ? 'bg-primary text-primary-foreground font-medium'
+                  : 'bg-muted text-muted-foreground'
+              )}
+            >
+              <section.icon size={14} />
+              {section.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Desktop Sidebar */}
+      <div className="hidden md:block w-56 shrink-0 p-6 border-r border-border">
         <h1 className="text-lg font-semibold mb-4">Settings</h1>
         <nav className="flex flex-col gap-1">
           {sections.map((section) => (
@@ -110,7 +132,7 @@ export default function AccountPage() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 min-w-0 p-6">
+      <div className="flex-1 min-w-0 p-4 md:p-6">
         {activeSection === 'account' && (
           <div className="space-y-8">
             <div>
@@ -249,10 +271,10 @@ export default function AccountPage() {
             <p className="text-sm text-muted-foreground mb-6">
               Connection details for the Hummingbot backend server.
             </p>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
               <div>
                 <span className="text-muted-foreground">Host</span>
-                <p className="font-mono">{host}</p>
+                <p className="font-mono text-xs sm:text-sm truncate">{host}</p>
               </div>
               <div>
                 <span className="text-muted-foreground">Port</span>
@@ -260,7 +282,7 @@ export default function AccountPage() {
               </div>
               <div>
                 <span className="text-muted-foreground">Username</span>
-                <p className="font-mono">{config.api.username}</p>
+                <p className="font-mono text-xs sm:text-sm truncate">{config.api.username}</p>
               </div>
               <div>
                 <span className="text-muted-foreground">Status</span>

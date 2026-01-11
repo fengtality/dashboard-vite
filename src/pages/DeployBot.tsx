@@ -293,7 +293,7 @@ export default function DeployBot() {
             <CardDescription>Select a strategy type, strategy, and configuration to deploy</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <Label>Type</Label>
                 <Select value={selectedType} onValueChange={(v) => handleTypeChange(v as 'controller' | 'script')}>

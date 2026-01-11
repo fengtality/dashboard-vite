@@ -84,7 +84,9 @@ Available components:
 - `Popover` - Floating content
 - `Select` - Dropdown selection
 - `Separator` - Visual dividers
+- `Sheet` - Slide-out drawer (mobile navigation, side panels)
 - `Sidebar` - Navigation sidebar
+- `Skeleton` - Loading placeholders
 - `Sonner` - Toast notifications
 - `Tabs` - Tabbed interfaces
 - `Tooltip` - Hover hints
@@ -128,6 +130,139 @@ Routes defined in `src/App.tsx`:
 - `/bots` - ActiveBots
 - `/bots/deploy` - DeployBot
 - `/bots/archived` - ArchivedBots
+
+## Responsive Design Patterns
+
+The app is **desktop-first** but usable on mobile. Use these consistent patterns:
+
+### Breakpoints
+- `sm:` - 640px+ (small tablets, large phones in landscape)
+- `md:` - 768px+ (tablets)
+- `lg:` - 1024px+ (laptops)
+
+### Layout Patterns
+
+**Navigation:**
+- Desktop: Full horizontal nav in header
+- Mobile: Hamburger menu with Sheet component (slide-out drawer)
+```tsx
+// Layout.tsx pattern
+<Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+  <SheetTrigger asChild>
+    <Button variant="ghost" size="icon" className="md:hidden mr-2">
+      <Menu size={20} />
+    </Button>
+  </SheetTrigger>
+  <SheetContent side="left">...</SheetContent>
+</Sheet>
+<nav className="hidden md:flex">...</nav>
+```
+
+**Settings/Multi-section pages:**
+- Desktop: Sidebar navigation
+- Mobile: Horizontal scrollable tabs
+```tsx
+// Mobile tabs
+<div className="md:hidden flex gap-1 overflow-x-auto">
+  {sections.map(s => <button className="whitespace-nowrap">...</button>)}
+</div>
+// Desktop sidebar
+<div className="hidden md:block w-56 border-r">...</div>
+```
+
+**Grid Layouts:**
+```tsx
+// 2-column → 1-column on mobile
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+// 3-column → 1-column on mobile
+<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+// 4-column → 2-column on mobile
+<div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+```
+
+### Component Patterns
+
+**Headers with actions:**
+```tsx
+<div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+  <div>Title/Info</div>
+  <div className="flex items-center gap-2 shrink-0">Actions</div>
+</div>
+```
+
+**Buttons with text:**
+```tsx
+// Icon only on mobile, icon+text on desktop
+<Button size="sm">
+  <Play className="sm:mr-2" size={16} />
+  <span className="hidden sm:inline">Start</span>
+</Button>
+```
+
+**Tables:**
+```tsx
+// Hide less important columns on mobile
+<th className="hidden md:table-cell">Price</th>
+<td className="hidden md:table-cell">{price}</td>
+
+// Smaller text/padding on mobile
+<td className="py-2 px-2 md:px-3 text-xs md:text-sm">
+```
+
+**Tab Labels:**
+```tsx
+// Abbreviated labels on mobile
+<TabsTrigger className="text-xs md:text-sm">
+  <span className="hidden sm:inline">Controllers</span>
+  <span className="sm:hidden">Ctrl</span>
+  <span className="ml-1">({count})</span>
+</TabsTrigger>
+```
+
+**Long content:**
+```tsx
+// Truncate with ellipsis
+<span className="truncate">{longText}</span>
+
+// Allow wrapping
+<div className="flex flex-wrap items-center gap-2">
+```
+
+### Spacing Patterns
+```tsx
+// Responsive padding
+className="px-4 md:px-6 py-3 md:py-4"
+
+// Responsive gaps
+className="gap-2 md:gap-4"
+
+// Responsive text sizes
+className="text-base md:text-lg"
+className="text-xs md:text-sm"
+```
+
+### Hide/Show Patterns
+```tsx
+// Hide on mobile
+className="hidden md:block"
+className="hidden md:flex"
+
+// Hide on desktop (mobile only)
+className="md:hidden"
+```
+
+### Complex Layouts (TradePage)
+For pages with resizable panels:
+- Hide sidebar panels on mobile (order book)
+- Use `lg:flex` for sidebars that need more space
+- Content is accessible via tabs when hidden
+
+```tsx
+// Sidebar visible only on large screens
+<div className="hidden lg:flex w-48 flex-col border-l">
+```
 
 ## Code Style Guidelines
 

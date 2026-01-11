@@ -356,22 +356,22 @@ function BotCard({
 
   return (
     <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <Link to={`/bots/${botName}`} className="flex items-center gap-3 hover:opacity-80">
-            <Bot className={isRunning ? 'text-success' : 'text-muted-foreground'} size={24} />
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-medium text-foreground">{formatBotName(botName)}</span>
-                <Badge variant={isRunning ? 'default' : 'secondary'}>
+      <CardContent className="p-3 md:p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <Link to={`/bots/${botName}`} className="flex items-center gap-3 hover:opacity-80 min-w-0">
+            <Bot className={isRunning ? 'text-success' : 'text-muted-foreground'} size={20} />
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium text-foreground text-sm md:text-base truncate">{formatBotName(botName)}</span>
+                <Badge variant={isRunning ? 'default' : 'secondary'} className="text-xs">
                   {isRunning ? 'Running' : 'Stopped'}
                 </Badge>
               </div>
-              <p className="text-xs text-muted-foreground mt-0.5 font-mono">{botName}</p>
+              <p className="text-xs text-muted-foreground mt-0.5 font-mono truncate">{botName}</p>
             </div>
           </Link>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0 ml-8 sm:ml-0">
             {isRunning ? (
               <Button
                 variant="outline"
@@ -385,9 +385,9 @@ function BotCard({
                 {isLoading ? (
                   <Loader2 className="animate-spin" size={16} />
                 ) : (
-                  <Square size={16} className="mr-1" />
+                  <Square size={16} className="sm:mr-1" />
                 )}
-                Stop
+                <span className="hidden sm:inline">Stop</span>
               </Button>
             ) : (
               <Button
@@ -402,9 +402,9 @@ function BotCard({
                 {isLoading ? (
                   <Loader2 className="animate-spin" size={16} />
                 ) : (
-                  <Play size={16} className="mr-1" />
+                  <Play size={16} className="sm:mr-1" />
                 )}
-                Start
+                <span className="hidden sm:inline">Start</span>
               </Button>
             )}
           </div>

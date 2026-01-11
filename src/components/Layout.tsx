@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import {
   Key,
@@ -8,10 +9,18 @@ import {
   Sun,
   Moon,
   Settings,
+  Menu,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/theme-provider';
 import { Button } from '@/components/ui/button';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 
 function ThemeToggle() {
   const { theme, setTheme } = useTheme();
@@ -32,6 +41,8 @@ function ThemeToggle() {
 
 const navLinkStyle = "inline-flex h-9 items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none";
 
+const mobileNavLinkStyle = "flex items-center gap-3 rounded-md px-3 py-3 text-base font-medium transition-colors hover:bg-accent hover:text-accent-foreground";
+
 function NavLink({ to, children, isActive }: { to: string; children: React.ReactNode; isActive?: boolean }) {
   return (
     <Link to={to} className={cn(navLinkStyle, isActive && 'bg-accent/50')}>
@@ -40,23 +51,34 @@ function NavLink({ to, children, isActive }: { to: string; children: React.React
   );
 }
 
+function MobileNavLink({ to, children, isActive, onClick }: { to: string; children: React.ReactNode; isActive?: boolean; onClick?: () => void }) {
+  return (
+    <Link to={to} className={cn(mobileNavLinkStyle, isActive && 'bg-accent/50')} onClick={onClick}>
+      {children}
+    </Link>
+  );
+}
+
 
 export default function Layout() {
   const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const closeMobileMenu = () => setMobileMenuOpen(false);
 
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Top Navigation Bar */}
       <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="flex h-14 items-center px-6">
+        <div className="flex h-14 items-center px-4 md:px-6">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 mr-6">
             <Bird size={24} className="text-primary" />
             <span className="text-lg font-bold">Condor</span>
           </Link>
 
-          {/* Navigation */}
-          <nav className="flex items-center gap-1">
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center gap-1">
             <NavLink to="/trade/spot" isActive={location.pathname === '/trade/spot'}>
               <Plug size={16} className="mr-2" />
               Spot Markets
@@ -80,35 +102,96 @@ export default function Layout() {
 
           {/* Right side - Keys, Account & Theme */}
           <div className="ml-auto flex items-center gap-1">
-            <NavLink to="/keys" isActive={location.pathname === '/keys'}>
-              <Key size={16} className="mr-2" />
-              Keys
-            </NavLink>
-            <NavLink to="/settings" isActive={location.pathname.startsWith('/settings')}>
-              <Settings size={16} className="mr-2" />
-              Settings
-            </NavLink>
-            <ThemeToggle />
+            <div className="hidden md:flex items-center gap-1">
+              <NavLink to="/keys" isActive={location.pathname === '/keys'}>
+                <Key size={16} className="mr-2" />
+                Keys
+              </NavLink>
+              <NavLink to="/settings" isActive={location.pathname.startsWith('/settings')}>
+                <Settings size={16} className="mr-2" />
+                Settings
+              </NavLink>
+            </div>
+            {/* Theme toggle - desktop only */}
+            <div className="hidden md:block">
+              <ThemeToggle />
+            </div>
+            {/* Mobile Menu Button */}
+            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon" className="md:hidden">
+                  <Menu size={20} />
+                  <span className="sr-only">Toggle menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-72 p-0 flex flex-col">
+                <SheetHeader className="border-b border-border px-4 py-4">
+                  <SheetTitle>Menu</SheetTitle>
+                </SheetHeader>
+                <nav className="flex flex-col p-4 gap-1 flex-1">
+                  <MobileNavLink to="/trade/spot" isActive={location.pathname === '/trade/spot'} onClick={closeMobileMenu}>
+                    <Plug size={20} />
+                    Spot Markets
+                  </MobileNavLink>
+
+                  <MobileNavLink to="/trade/perp" isActive={location.pathname === '/trade/perp'} onClick={closeMobileMenu}>
+                    <Zap size={20} />
+                    Perp Markets
+                  </MobileNavLink>
+
+                  <MobileNavLink to="/bots" isActive={location.pathname.startsWith('/bots')} onClick={closeMobileMenu}>
+                    <Bot size={20} />
+                    Bots
+                  </MobileNavLink>
+
+                  <MobileNavLink to="/strategies" isActive={location.pathname.startsWith('/strategies')} onClick={closeMobileMenu}>
+                    <Zap size={20} />
+                    Strategies
+                  </MobileNavLink>
+
+                  <div className="border-t border-border my-2" />
+
+                  <MobileNavLink to="/keys" isActive={location.pathname === '/keys'} onClick={closeMobileMenu}>
+                    <Key size={20} />
+                    Keys
+                  </MobileNavLink>
+
+                  <MobileNavLink to="/settings" isActive={location.pathname.startsWith('/settings')} onClick={closeMobileMenu}>
+                    <Settings size={20} />
+                    Settings
+                  </MobileNavLink>
+
+                  <div className="mt-auto pt-4 border-t border-border">
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <span className="text-sm text-muted-foreground">Theme</span>
+                      <ThemeToggle />
+                    </div>
+                  </div>
+                </nav>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto p-6">
+      <main className="flex-1 overflow-auto p-4 md:p-6">
         <Outlet />
       </main>
 
       {/* Footer */}
-      <footer className="border-t bg-muted/30 px-6 py-2">
+      <footer className="border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6 py-2">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
             </span>
-            <span>API: localhost:8000</span>
+            <span className="hidden sm:inline">API: localhost:8000</span>
+            <span className="sm:hidden">Connected</span>
           </div>
-          <span>Condor Dashboard v1.0</span>
+          <span className="hidden sm:inline">Condor Dashboard v1.0</span>
+          <span className="sm:hidden">v1.0</span>
         </div>
       </footer>
     </div>

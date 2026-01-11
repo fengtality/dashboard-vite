@@ -292,12 +292,12 @@ export default function ManageKeys() {
             {filteredExistingCredentials.map((cred) => (
               <Card key={cred}>
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <Key className="text-success" size={18} />
-                      <span className="text-foreground">{cred}</span>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Key className="text-success shrink-0" size={18} />
+                      <span className="text-foreground text-sm sm:text-base truncate">{cred}</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <Button
                         variant="outline"
                         size="sm"
@@ -309,7 +309,7 @@ export default function ManageKeys() {
                         ) : (
                           <>
                             <RefreshCw className="mr-1" size={14} />
-                            Balance
+                            <span className="hidden sm:inline">Balance</span>
                           </>
                         )}
                       </Button>
@@ -342,11 +342,11 @@ export default function ManageKeys() {
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b border-border">
-                              <th className="text-left py-2 px-3 text-muted-foreground font-medium">Token</th>
-                              <th className="text-right py-2 px-3 text-muted-foreground font-medium">Units</th>
-                              <th className="text-right py-2 px-3 text-muted-foreground font-medium">Available</th>
-                              <th className="text-right py-2 px-3 text-muted-foreground font-medium">Price</th>
-                              <th className="text-right py-2 px-3 text-muted-foreground font-medium">Value</th>
+                              <th className="text-left py-2 px-2 md:px-3 text-muted-foreground font-medium text-xs md:text-sm">Token</th>
+                              <th className="text-right py-2 px-2 md:px-3 text-muted-foreground font-medium text-xs md:text-sm">Units</th>
+                              <th className="hidden sm:table-cell text-right py-2 px-3 text-muted-foreground font-medium text-sm">Available</th>
+                              <th className="hidden md:table-cell text-right py-2 px-3 text-muted-foreground font-medium">Price</th>
+                              <th className="text-right py-2 px-2 md:px-3 text-muted-foreground font-medium text-xs md:text-sm">Value</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -355,20 +355,20 @@ export default function ManageKeys() {
                               .sort((a, b) => b.value - a.value || b.units - a.units)
                               .map((balance) => (
                                 <tr key={balance.token} className="border-b border-border/50 hover:bg-muted/30">
-                                  <td className="py-2 px-3 font-medium text-foreground">{balance.token}</td>
-                                  <td className="py-2 px-3 text-right font-mono text-foreground">
+                                  <td className="py-2 px-2 md:px-3 font-medium text-foreground text-xs md:text-sm">{balance.token}</td>
+                                  <td className="py-2 px-2 md:px-3 text-right font-mono text-foreground text-xs md:text-sm">
                                     {balance.units.toLocaleString(undefined, {
                                       minimumFractionDigits: 2,
                                       maximumFractionDigits: 6,
                                     })}
                                   </td>
-                                  <td className="py-2 px-3 text-right font-mono text-muted-foreground">
+                                  <td className="hidden sm:table-cell py-2 px-3 text-right font-mono text-muted-foreground">
                                     {balance.available_units.toLocaleString(undefined, {
                                       minimumFractionDigits: 2,
                                       maximumFractionDigits: 6,
                                     })}
                                   </td>
-                                  <td className="py-2 px-3 text-right font-mono text-muted-foreground">
+                                  <td className="hidden md:table-cell py-2 px-3 text-right font-mono text-muted-foreground">
                                     {balance.price > 0
                                       ? `$${balance.price.toLocaleString(undefined, {
                                           minimumFractionDigits: 2,
@@ -376,7 +376,7 @@ export default function ManageKeys() {
                                         })}`
                                       : '—'}
                                   </td>
-                                  <td className="py-2 px-3 text-right font-mono text-foreground">
+                                  <td className="py-2 px-2 md:px-3 text-right font-mono text-foreground text-xs md:text-sm">
                                     {balance.price > 0
                                       ? `$${balance.value.toLocaleString(undefined, {
                                           minimumFractionDigits: 2,

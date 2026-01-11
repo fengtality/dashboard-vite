@@ -6,12 +6,11 @@ A modern, browser-based dashboard for managing trading bots powered by [Hummingb
 
 This dashboard provides a frontend interface for the Hummingbot API server, allowing you to:
 
-- **Add Keys** - Add and remove exchange API keys for spot and perpetual connectors
-- **Monitor Connectors** - View orders, positions, trades, and balances for each exchange (dedicated page per connector)
-- **Create Strategy Configs** - Configure V2 trading strategies (Grid Strike) and simple script strategies
-- **Deploy Bots** - Deploy trading bots with V2 controllers or scripts
-- **Monitor Bots** - View bot status, start/stop bots, and archive completed bots (dedicated page per bot)
-- **View Archives** - Access historical performance data from archived bots
+- **Trade** - View market data (order book, price charts), place orders, and run trading bots on spot and perpetual markets
+- **Manage Keys** - Add and remove exchange API keys for spot and perpetual connectors
+- **Strategies** - Browse, create, and configure V2 controller strategies (Grid Strike, etc.)
+- **Bots** - Deploy, monitor, start/stop, and archive trading bots
+- **Settings** - Configure account preferences and application settings
 
 ## Tech Stack
 

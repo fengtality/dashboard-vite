@@ -6,6 +6,9 @@ export const config = {
     username: import.meta.env.VITE_API_USERNAME || 'admin',
     password: import.meta.env.VITE_API_PASSWORD || 'admin',
   },
+  gateway: {
+    passphrase: import.meta.env.VITE_GATEWAY_PASSPHRASE || 'a',
+  },
 } as const;
 
 // Helper to get Basic Auth header value

@@ -13,6 +13,7 @@ import { FieldLabel } from '@/components/field-label';
 import { formatConnectorName } from '@/lib/formatting';
 import { isPerpetualConnector } from '@/lib/connectors';
 import { gateway } from '@/api/client';
+import { config as appConfig } from '@/config';
 import type { GatewayNetwork, GatewayWallet } from '@/api/client';
 import { Badge } from '@/components/ui/badge';
 import * as Collapsible from '@radix-ui/react-collapsible';
@@ -106,7 +107,7 @@ export default function AccountPage() {
   async function handleGatewayStart() {
     setGatewayActionLoading(true);
     try {
-      await gateway.start();
+      await gateway.start({ passphrase: appConfig.gateway.passphrase });
       toast.success('Gateway started');
       await fetchGatewayData();
     } catch (err) {

@@ -64,10 +64,11 @@ export default function AMMPage() {
   const [selectedConnector, setSelectedConnector] = useState<string>('');
 
   // Pool selection
-  const [poolInput, setPoolInput] = useState<string>('');
+  const [poolAddress, setPoolAddress] = useState<string>('');
   const [pools, setPools] = useState<PoolInfo[]>([]);
   const [selectedPool, setSelectedPool] = useState<PoolInfo | null>(null);
   const [loadingPools, setLoadingPools] = useState(false);
+  const [loadingPoolInfo, setLoadingPoolInfo] = useState(false);
 
   // Swap state
   const [swapFromToken, setSwapFromToken] = useState<string>('');
@@ -95,7 +96,7 @@ export default function AMMPage() {
   // Error state
   const [error] = useState<string | null>(null);
 
-  // Filter AMM/CLMM connectors for selected network
+  // Filter AMM connectors for selected network
   const ammConnectors = useMemo(() => {
     if (!selectedNetwork) return [];
     const networkParts = selectedNetwork.split('-');
@@ -134,7 +135,7 @@ export default function AMMPage() {
     checkGateway();
   }, []);
 
-  // Fetch pools when network/connector changes
+  // Fetch pools when connector changes
   useEffect(() => {
     if (!selectedNetwork || !selectedConnector) {
       setPools([]);
@@ -154,6 +155,43 @@ export default function AMMPage() {
     }
     fetchPools();
   }, [selectedNetwork, selectedConnector]);
+
+  // Fetch pool info when pool address changes
+  useEffect(() => {
+    if (!selectedNetwork || !selectedConnector || !poolAddress) {
+      setSelectedPool(null);
+      return;
+    }
+
+    // Check if address matches a known pool
+    const knownPool = pools.find(p => p.address.toLowerCase() === poolAddress.toLowerCase());
+    if (knownPool) {
+      setSelectedPool(knownPool);
+      setSwapFromToken(knownPool.base_token);
+      setSwapToToken(knownPool.quote_token);
+      return;
+    }
+
+    // Fetch pool info for unknown address
+    async function fetchPoolInfo() {
+      setLoadingPoolInfo(true);
+      try {
+        const poolInfo = await gatewayAMM.getPoolInfo(selectedConnector, selectedNetwork, poolAddress);
+        setSelectedPool(poolInfo);
+        setSwapFromToken(poolInfo.base_token);
+        setSwapToToken(poolInfo.quote_token);
+      } catch {
+        // Address might be invalid or not a pool
+        setSelectedPool(null);
+      } finally {
+        setLoadingPoolInfo(false);
+      }
+    }
+
+    // Debounce the fetch
+    const timeout = setTimeout(fetchPoolInfo, 500);
+    return () => clearTimeout(timeout);
+  }, [selectedNetwork, selectedConnector, poolAddress, pools]);
 
   // Fetch positions
   async function fetchPositions() {
@@ -275,10 +313,10 @@ export default function AMMPage() {
     }
   }
 
-  // Handle pool selection from input or list
+  // Handle pool selection from list
   function handlePoolSelect(pool: PoolInfo) {
     setSelectedPool(pool);
-    setPoolInput(pool.address);
+    setPoolAddress(pool.address);
     setSwapFromToken(pool.base_token);
     setSwapToToken(pool.quote_token);
   }
@@ -303,6 +341,15 @@ export default function AMMPage() {
   const connectorOptions = useMemo(() => {
     return ammConnectors.map(c => ({ value: c.name, label: c.name }));
   }, [ammConnectors]);
+
+  // Pool options for combobox (allows custom entry)
+  const poolOptions = useMemo(() => {
+    return pools.map(p => ({
+      value: p.address,
+      label: `${p.base_token}/${p.quote_token}${p.fee_tier ? ` (${p.fee_tier}%)` : ''}`,
+    }));
+  }, [pools]);
+
 
   // Loading state
   if (loadingGateway) {
@@ -337,16 +384,17 @@ export default function AMMPage() {
 
   return (
     <div className="-m-4 md:-m-6 h-[calc(100vh-56px-36px)] overflow-hidden flex flex-col">
-      {/* Header Row - Network & Connector Selectors */}
+      {/* Header Row - Network, DEX & Pool Selectors */}
       <div className="flex flex-wrap items-center gap-2 md:gap-4 px-4 md:px-6 py-3 md:py-4 border-b border-border">
         <h1 className="text-base md:text-lg font-semibold">AMM Markets</h1>
-        <div className="w-40 md:w-52">
+        <div className="w-40 md:w-48">
           <Combobox
             options={networkOptions}
             value={selectedNetwork}
             onValueChange={(v: string) => {
               setSelectedNetwork(v);
               setSelectedConnector('');
+              setPoolAddress('');
               setSelectedPool(null);
             }}
             placeholder="Select network..."
@@ -354,12 +402,13 @@ export default function AMMPage() {
             emptyText="No networks found"
           />
         </div>
-        <div className="w-40 md:w-52">
+        <div className="w-32 md:w-40">
           <Combobox
             options={connectorOptions}
             value={selectedConnector}
             onValueChange={(v: string) => {
               setSelectedConnector(v);
+              setPoolAddress('');
               setSelectedPool(null);
             }}
             placeholder="Select DEX..."
@@ -368,15 +417,26 @@ export default function AMMPage() {
             disabled={!selectedNetwork}
           />
         </div>
-        <div className="flex-1 max-w-xs">
-          <Input
-            value={poolInput}
-            onChange={(e) => setPoolInput(e.target.value)}
-            placeholder="Pool address or trading pair..."
-            className="text-sm"
+        <div className="w-48 md:w-64">
+          <Combobox
+            options={poolOptions}
+            value={poolAddress}
+            onValueChange={(v: string) => setPoolAddress(v)}
+            placeholder={loadingPools ? "Loading pools..." : "Select or enter pool..."}
+            searchPlaceholder="Search pools or enter address..."
+            emptyText="Enter pool address"
             disabled={!selectedConnector}
+            allowCustomValue
           />
         </div>
+        {loadingPoolInfo && (
+          <Loader2 size={16} className="animate-spin text-muted-foreground" />
+        )}
+        {selectedPool && (
+          <Badge variant="secondary" className="text-xs">
+            {selectedPool.base_token}/{selectedPool.quote_token}
+          </Badge>
+        )}
       </div>
 
       {error && (
@@ -389,16 +449,44 @@ export default function AMMPage() {
       <ResizablePanelGroup direction="vertical" className="flex-1">
         {/* Top Section - Pools & Actions */}
         <ResizablePanel defaultSize={60} minSize={30}>
-          {!selectedNetwork || !selectedConnector ? (
+          {!selectedNetwork ? (
             <div className="h-full flex items-center justify-center">
               <Empty className="py-16">
                 <EmptyMedia variant="icon">
                   <Droplets className="text-muted-foreground" />
                 </EmptyMedia>
                 <EmptyHeader>
-                  <EmptyTitle>Select Network & DEX</EmptyTitle>
+                  <EmptyTitle>Select Network</EmptyTitle>
                   <EmptyDescription>
-                    Choose a blockchain network and decentralized exchange to start trading.
+                    Choose a blockchain network to browse pools and start trading.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            </div>
+          ) : !selectedConnector ? (
+            <div className="h-full flex items-center justify-center">
+              <Empty className="py-16">
+                <EmptyMedia variant="icon">
+                  <Droplets className="text-muted-foreground" />
+                </EmptyMedia>
+                <EmptyHeader>
+                  <EmptyTitle>Select DEX</EmptyTitle>
+                  <EmptyDescription>
+                    Choose a decentralized exchange to browse pools and start trading.
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            </div>
+          ) : !selectedPool ? (
+            <div className="h-full flex items-center justify-center">
+              <Empty className="py-16">
+                <EmptyMedia variant="icon">
+                  <Droplets className="text-muted-foreground" />
+                </EmptyMedia>
+                <EmptyHeader>
+                  <EmptyTitle>Select Pool</EmptyTitle>
+                  <EmptyDescription>
+                    Select a pool from the dropdown or enter a pool address to view pool data and start trading.
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>
@@ -702,11 +790,18 @@ export default function AMMPage() {
 
         <ResizableHandle withHandle />
 
-        {/* Bottom Section - Balances, Transactions, Positions */}
+        {/* Bottom Section - Balances, LP Positions, Transactions */}
         <ResizablePanel defaultSize={40} minSize={20}>
           <div className="h-full px-4 md:px-6 py-3 md:py-4 overflow-auto">
-            <Tabs defaultValue="positions" className="h-full">
+            <Tabs defaultValue="balances" className="h-full">
               <TabsList className="w-full bg-transparent border-b border-border rounded-none h-auto p-0 gap-0">
+                <TabsTrigger
+                  value="balances"
+                  className="flex-1 text-sm py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground"
+                >
+                  <Wallet size={14} className="mr-2" />
+                  Balances
+                </TabsTrigger>
                 <TabsTrigger
                   value="positions"
                   className="flex-1 text-sm py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground"
@@ -721,14 +816,15 @@ export default function AMMPage() {
                   <History size={14} className="mr-2" />
                   Transactions ({swapHistory?.data?.length || 0})
                 </TabsTrigger>
-                <TabsTrigger
-                  value="balances"
-                  className="flex-1 text-sm py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground"
-                >
-                  <Wallet size={14} className="mr-2" />
-                  Balances
-                </TabsTrigger>
               </TabsList>
+
+              {/* Balances Tab */}
+              <TabsContent value="balances" className="mt-4">
+                <div className="text-center py-8 text-muted-foreground text-sm">
+                  <Wallet size={32} className="mx-auto mb-2 opacity-50" />
+                  Connect a wallet to view balances
+                </div>
+              </TabsContent>
 
               {/* LP Positions Tab */}
               <TabsContent value="positions" className="mt-4">
@@ -839,14 +935,6 @@ export default function AMMPage() {
                     </TableBody>
                   </Table>
                 )}
-              </TabsContent>
-
-              {/* Balances Tab */}
-              <TabsContent value="balances" className="mt-4">
-                <div className="text-center py-8 text-muted-foreground text-sm">
-                  <Wallet size={32} className="mx-auto mb-2 opacity-50" />
-                  Connect a wallet to view balances
-                </div>
               </TabsContent>
             </Tabs>
           </div>

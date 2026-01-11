@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import {
   Key,
@@ -12,6 +12,7 @@ import {
   Menu,
   Droplets,
 } from 'lucide-react';
+import { gateway } from '@/api/client';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/theme-provider';
 import { Button } from '@/components/ui/button';
@@ -64,8 +65,25 @@ function MobileNavLink({ to, children, isActive, onClick }: { to: string; childr
 export default function Layout() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [gatewayRunning, setGatewayRunning] = useState<boolean | null>(null);
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
+
+  // Check Gateway status periodically
+  useEffect(() => {
+    async function checkGateway() {
+      try {
+        const status = await gateway.getStatus();
+        setGatewayRunning(status.running === true || status.status === 'running');
+      } catch {
+        setGatewayRunning(false);
+      }
+    }
+
+    checkGateway();
+    const interval = setInterval(checkGateway, 30000); // Check every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="flex flex-col h-full bg-background">
@@ -192,17 +210,33 @@ export default function Layout() {
 
       {/* Footer */}
       <footer className="border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6 py-2">
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
-            </span>
-            <span className="hidden sm:inline">API: localhost:8000</span>
-            <span className="sm:hidden">Connected</span>
+        <div className="flex items-center text-xs text-muted-foreground">
+          <div className="flex items-center gap-4">
+            {/* API Status */}
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
+              </span>
+              <span>Hummingbot API</span>
+            </div>
+            {/* Gateway Status */}
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                {gatewayRunning ? (
+                  <>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
+                  </>
+                ) : gatewayRunning === false ? (
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-muted-foreground"></span>
+                ) : (
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-muted-foreground animate-pulse"></span>
+                )}
+              </span>
+              <span>Gateway</span>
+            </div>
           </div>
-          <span className="hidden sm:inline">Condor Dashboard v1.0</span>
-          <span className="sm:hidden">v1.0</span>
         </div>
       </footer>
     </div>

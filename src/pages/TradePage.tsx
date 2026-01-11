@@ -86,7 +86,6 @@ export default function TradePage({ type }: TradePageProps) {
   const [selectedConnector, setSelectedConnectorState] = useState<string>(selectionCache[type].connector);
 
   // Data state
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [balances, setBalances] = useState<PortfolioBalance[]>([]);
   const [refreshingBalances, setRefreshingBalances] = useState(false);
@@ -578,11 +577,9 @@ export default function TradePage({ type }: TradePageProps) {
 
     async function fetchData() {
       if (!account || !selectedConnector) {
-        setLoading(false);
         return;
       }
 
-      setLoading(true);
       setError(null);
 
       try {
@@ -619,8 +616,6 @@ export default function TradePage({ type }: TradePageProps) {
         setTrades(tradesResult);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch data');
-      } finally {
-        setLoading(false);
       }
     }
 
@@ -1922,77 +1917,71 @@ export default function TradePage({ type }: TradePageProps) {
         {/* Bottom Section - Tabs */}
         <ResizablePanel defaultSize={40} minSize={20}>
           <div className="h-full px-4 md:px-6 py-3 md:py-4 overflow-auto">
-            {loading ? (
-              <div className="flex items-center justify-center h-32">
-                <Loader2 className="animate-spin text-primary" size={24} />
-              </div>
-            ) : (
-              <Tabs defaultValue="balances" className="h-full">
-          <TabsList className="w-full bg-transparent border-b border-border rounded-none h-auto p-0 gap-0">
-            <TabsTrigger
-              value="balances"
-              className="flex-1 text-sm py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground"
-            >
-              Balances
-            </TabsTrigger>
-            <TabsTrigger
-              value="orders"
-              className="flex-1 text-sm py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground"
-            >
-              Orders ({activeOrders?.data.length ?? 0})
-            </TabsTrigger>
-            <TabsTrigger
-              value="trades"
-              className="flex-1 text-sm py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground"
-            >
-              Trades ({trades?.data.length ?? 0})
-            </TabsTrigger>
-            {isPerp && (
-              <TabsTrigger
-                value="positions"
-                className="flex-1 text-sm py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground"
-              >
-                Positions ({positions?.data.length ?? 0})
-              </TabsTrigger>
-            )}
-          </TabsList>
+            <Tabs defaultValue="balances" className="h-full">
+              <TabsList className="w-full bg-transparent border-b border-border rounded-none h-auto p-0 gap-0">
+                <TabsTrigger
+                  value="balances"
+                  className="flex-1 text-sm py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground"
+                >
+                  Balances
+                </TabsTrigger>
+                <TabsTrigger
+                  value="orders"
+                  className="flex-1 text-sm py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground"
+                >
+                  Orders ({activeOrders?.data.length ?? 0})
+                </TabsTrigger>
+                <TabsTrigger
+                  value="trades"
+                  className="flex-1 text-sm py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground"
+                >
+                  Trades ({trades?.data.length ?? 0})
+                </TabsTrigger>
+                {isPerp && (
+                  <TabsTrigger
+                    value="positions"
+                    className="flex-1 text-sm py-3 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=inactive]:text-muted-foreground"
+                  >
+                    Positions ({positions?.data.length ?? 0})
+                  </TabsTrigger>
+                )}
+              </TabsList>
 
-          {/* Balances Tab */}
-          <TabsContent value="balances">
-            <BalancesTable
-              balances={balances}
-              refreshing={refreshingBalances}
-              onRefresh={refreshBalances}
-            />
-          </TabsContent>
+              {/* Balances Tab */}
+              <TabsContent value="balances">
+                <BalancesTable
+                  balances={balances}
+                  refreshing={refreshingBalances}
+                  onRefresh={refreshBalances}
+                />
+              </TabsContent>
 
-          {/* Orders Tab */}
-          <TabsContent value="orders">
-            <OrdersTable
-              orders={activeOrders}
-              cancellingOrderId={cancellingOrderId}
-              onCancelOrder={handleCancelOrder}
-              selectedConnector={selectedConnector}
-            />
-          </TabsContent>
+              {/* Orders Tab */}
+              <TabsContent value="orders">
+                <OrdersTable
+                  orders={activeOrders}
+                  cancellingOrderId={cancellingOrderId}
+                  onCancelOrder={handleCancelOrder}
+                  selectedConnector={selectedConnector}
+                />
+              </TabsContent>
 
-          {/* Trades Tab */}
-          <TabsContent value="trades">
-            <TradesTable trades={trades} />
-          </TabsContent>
+              {/* Trades Tab */}
+              <TabsContent value="trades">
+                <TradesTable trades={trades} />
+              </TabsContent>
 
-          {/* Positions Tab (Perpetual only) */}
-          {isPerp && (
-            <TabsContent value="positions">
-              <PositionsTable
-                positions={positions}
-                markPrice={fundingInfo?.mark_price ?? null}
-                currentPrice={currentPrice}
-              />
-            </TabsContent>
-          )}
-              </Tabs>
-            )}
+              {/* Positions Tab (Perpetual only) */}
+              {isPerp && (
+                <TabsContent value="positions">
+                  <PositionsTable
+                    positions={positions}
+                    markPrice={fundingInfo?.mark_price ?? null}
+                    currentPrice={currentPrice}
+                  />
+                </TabsContent>
+              )}
+            </Tabs>
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>

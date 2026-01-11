@@ -4,7 +4,7 @@ A modern, browser-based dashboard for managing trading bots powered by [Hummingb
 
 ## Overview
 
-This dashboard provides a frontend interface for the Hummingbot Backend API server, allowing you to:
+This dashboard provides a frontend interface for the Hummingbot API server, allowing you to:
 
 - **Add Keys** - Add and remove exchange API keys for spot and perpetual connectors
 - **Monitor Connectors** - View orders, positions, trades, and balances for each exchange (dedicated page per connector)
@@ -48,7 +48,7 @@ Configure the dashboard by editing `.env`:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VITE_API_URL` | `/api` | Backend API URL (use `/api` for dev proxy) |
+| `VITE_API_URL` | `/api` | Hummingbot API URL (use `/api` for dev proxy) |
 | `VITE_API_USERNAME` | `admin` | Basic auth username |
 | `VITE_API_PASSWORD` | `admin` | Basic auth password |
 | `VITE_TELEGRAM_BOT_USERNAME` | `condor_tg_bot` | Condor Telegram Bot username |
@@ -62,7 +62,7 @@ Configure the dashboard by editing `.env`:
 npm run dev
 ```
 
-The app will be available at `http://localhost:5173`. It proxies API requests to `http://localhost:8000` (the Backend API server).
+The app will be available at `http://localhost:5173`. It proxies API requests to `http://localhost:8000` (the Hummingbot API server).
 
 ### Production Build
 
@@ -79,7 +79,7 @@ npm run preview
 ```
 src/
 ├── api/
-│   └── client.ts             # API client for Backend API
+│   └── client.ts             # API client for Hummingbot API
 ├── components/
 │   ├── ui/                   # shadcn/ui components
 │   │   ├── alert.tsx
@@ -121,7 +121,7 @@ src/
 
 ### API Proxy
 
-The development server proxies `/api` requests to the Backend API. Configure in `vite.config.ts`:
+The development server proxies `/api` requests to the Hummingbot API. Configure in `vite.config.ts`:
 
 ```typescript
 server: {
@@ -152,9 +152,9 @@ Primary colors:
 | `npm run preview` | Preview production build |
 | `npm run lint` | Run ESLint |
 
-## Backend API
+## Hummingbot API
 
-This dashboard requires the [Hummingbot Hummingbot API](https://github.com/hummingbot/hummingbot-api) server running. The API provides endpoints for:
+This dashboard requires the [Hummingbot API](https://github.com/hummingbot/hummingbot-api) server running. The API provides endpoints for:
 
 - `/connectors` - Exchange connector management
 - `/accounts` - Account and credential management

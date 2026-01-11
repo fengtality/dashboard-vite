@@ -825,9 +825,9 @@ export default function TradePage({ type }: TradePageProps) {
                 .map(c => ({
                   value: c,
                   label: connectedConnectors.includes(c)
-                    ? <span className="flex items-center gap-1.5">{formatConnectorName(c)} <Key size={12} /></span>
-                    : formatConnectorName(c),
-                  searchValue: formatConnectorName(c),
+                    ? <span className="flex items-center gap-1.5">{formatConnectorName(c, isPerp)} <Key size={12} /></span>
+                    : formatConnectorName(c, isPerp),
+                  searchValue: formatConnectorName(c, isPerp),
                 }));
             })()}
             value={selectedConnector}
@@ -858,7 +858,7 @@ export default function TradePage({ type }: TradePageProps) {
               {favorites
                 .filter(f => isPerp ? isPerpetualConnector(f.connector) : !isPerpetualConnector(f.connector))
                 .map((fav) => {
-                  const exchangeName = formatConnectorName(fav.connector);
+                  const exchangeName = formatConnectorName(fav.connector, isPerp);
                   const initial = exchangeName.charAt(0).toUpperCase();
                   return (
                     <Button
@@ -1381,7 +1381,7 @@ export default function TradePage({ type }: TradePageProps) {
                       </EmptyMedia>
                       <EmptyTitle>No Keys Connected</EmptyTitle>
                       <EmptyDescription>
-                        Connect your {formatConnectorName(selectedConnector)} API keys to start trading.
+                        Connect your {formatConnectorName(selectedConnector, isPerp)} API keys to start trading.
                       </EmptyDescription>
                     </EmptyHeader>
                     <EmptyContent>

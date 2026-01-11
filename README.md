@@ -24,7 +24,7 @@ This dashboard provides a frontend interface for the Hummingbot Backend API serv
 ## Prerequisites
 
 - Node.js 20.19+ or 22.12+
-- A running [Hummingbot Backend API](https://github.com/hummingbot/hummingbot-api) server
+- A running [Hummingbot API](https://github.com/hummingbot/hummingbot-api) server
 
 ## Getting Started
 
@@ -51,6 +51,7 @@ Configure the dashboard by editing `.env`:
 | `VITE_API_URL` | `/api` | Backend API URL (use `/api` for dev proxy) |
 | `VITE_API_USERNAME` | `admin` | Basic auth username |
 | `VITE_API_PASSWORD` | `admin` | Basic auth password |
+| `VITE_TELEGRAM_BOT_USERNAME` | `condor_tg_bot` | Condor Telegram Bot username |
 
 **Note:** The `.env` file is git-ignored to prevent committing credentials.
 
@@ -116,24 +117,6 @@ src/
 └── index.css                 # Global styles & theme variables
 ```
 
-## Application Layout
-
-### Header
-- **Account Selector** - Global account selection in the upper right corner
-- **Theme Toggle** - Switch between light and dark modes
-
-### Sidebar Navigation
-- **Connectors** (dynamic based on connected exchanges)
-  - Connected exchanges shown with Spot/Perp badges (click to view dedicated connector page)
-  - Add Keys - Add new exchange API keys
-- **Strategies**
-  - Grid Strike (V2) - Configure Grid Strike V2 controller strategy
-  - Scripts (Script) - Configure simple script strategies
-- **Bots** (dynamic based on active bots)
-  - Active bots shown with Running/Stopped badges (click to view dedicated bot page)
-  - Deploy - Deploy new bots (V2 controllers or scripts)
-  - Archived - View archived bot performance
-
 ## Configuration
 
 ### API Proxy
@@ -171,7 +154,7 @@ Primary colors:
 
 ## Backend API
 
-This dashboard requires the [Hummingbot Backend API](https://github.com/hummingbot/backend-api) server running. The API provides endpoints for:
+This dashboard requires the [Hummingbot Hummingbot API](https://github.com/hummingbot/hummingbot-api) server running. The API provides endpoints for:
 
 - `/connectors` - Exchange connector management
 - `/accounts` - Account and credential management
@@ -191,9 +174,3 @@ Contributions are welcome! Please read the contributing guidelines before submit
 ## License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
-
-## Related Projects
-
-- [Hummingbot](https://github.com/hummingbot/hummingbot) - Open source trading bot
-- [Backend API](https://github.com/hummingbot/backend-api) - REST API server for Hummingbot
-- [Original Dashboard](https://github.com/hummingbot/dashboard) - Streamlit-based dashboard

@@ -88,7 +88,7 @@ export default function BotDetail() {
     if (!botName) return;
     setActionLoading(true);
     try {
-      await bots.stopBot(botName);
+      await bots.stopBot({ bot_name: botName });
       await fetchData();
       toast.success(`Bot "${botName}" stopped`);
     } catch (err) {

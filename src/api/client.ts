@@ -221,6 +221,36 @@ export interface StartBotRequest {
   async_backend?: boolean;
 }
 
+export interface StopBotRequest {
+  bot_name: string;
+  skip_order_cancellation?: boolean;
+  async_backend?: boolean;
+}
+
+export interface StopAndArchiveOptions {
+  skip_order_cancellation?: boolean;
+  archive_locally?: boolean;
+  s3_bucket?: string;
+}
+
+export interface BotHistoryOptions {
+  days?: number;
+  verbose?: boolean;
+  precision?: number;
+  timeout?: number;
+}
+
+export interface BotRunsFilter {
+  bot_name?: string;
+  account_name?: string;
+  strategy_type?: string;
+  strategy_name?: string;
+  run_status?: string;
+  deployment_status?: string;
+  limit?: number;
+  offset?: number;
+}
+
 export const bots = {
   getStatus: async () => {
     const response = await request<{ status: string; data: Record<string, BotStatus> }>('/bot-orchestration/status');
@@ -228,8 +258,15 @@ export const bots = {
   },
   getBotStatus: (botName: string) =>
     request<BotStatus>(`/bot-orchestration/${botName}/status`),
-  getBotHistory: (botName: string) =>
-    request<unknown[]>(`/bot-orchestration/${botName}/history`),
+  getBotHistory: (botName: string, options?: BotHistoryOptions) => {
+    const params = new URLSearchParams();
+    if (options?.days !== undefined) params.append('days', options.days.toString());
+    if (options?.verbose !== undefined) params.append('verbose', options.verbose.toString());
+    if (options?.precision !== undefined) params.append('precision', options.precision.toString());
+    if (options?.timeout !== undefined) params.append('timeout', options.timeout.toString());
+    const queryString = params.toString();
+    return request<unknown[]>(`/bot-orchestration/${botName}/history${queryString ? `?${queryString}` : ''}`);
+  },
   getMqttStatus: () =>
     request<Record<string, unknown>>('/bot-orchestration/mqtt'),
   startBot: (config: StartBotRequest) =>
@@ -237,15 +274,31 @@ export const bots = {
       method: 'POST',
       body: JSON.stringify(config),
     }),
-  stopBot: (botName: string) =>
+  stopBot: (config: StopBotRequest) =>
     request<unknown>('/bot-orchestration/stop-bot', {
       method: 'POST',
-      body: JSON.stringify({ bot_name: botName }),
+      body: JSON.stringify(config),
     }),
-  stopAndArchive: (botName: string) =>
-    request<unknown>(`/bot-orchestration/stop-and-archive-bot/${botName}`, {
+  stopAndArchive: (botName: string, options?: StopAndArchiveOptions) => {
+    const params = new URLSearchParams();
+    // Default to skip_order_cancellation=true, archive_locally=true (same as Condor)
+    params.append('skip_order_cancellation', (options?.skip_order_cancellation ?? true).toString());
+    params.append('archive_locally', (options?.archive_locally ?? true).toString());
+    if (options?.s3_bucket) params.append('s3_bucket', options.s3_bucket);
+    return request<unknown>(`/bot-orchestration/stop-and-archive-bot/${botName}?${params.toString()}`, {
       method: 'POST',
-    }),
+    });
+  },
+  restartBot: async (botName: string, skipOrderCancellation: boolean = false) => {
+    // Stop the bot first
+    const stopResult = await bots.stopBot({
+      bot_name: botName,
+      skip_order_cancellation: skipOrderCancellation
+    });
+    // Then start it again
+    const startResult = await bots.startBot({ bot_name: botName });
+    return { stopResult, startResult };
+  },
   deployV2Controllers: (config: V2ControllerDeployment) =>
     request<unknown>('/bot-orchestration/deploy-v2-controllers', {
       method: 'POST',
@@ -256,7 +309,19 @@ export const bots = {
       method: 'POST',
       body: JSON.stringify(config),
     }),
-  getBotRuns: () => request<unknown[]>('/bot-orchestration/bot-runs'),
+  getBotRuns: (filter?: BotRunsFilter) => {
+    const params = new URLSearchParams();
+    if (filter?.bot_name) params.append('bot_name', filter.bot_name);
+    if (filter?.account_name) params.append('account_name', filter.account_name);
+    if (filter?.strategy_type) params.append('strategy_type', filter.strategy_type);
+    if (filter?.strategy_name) params.append('strategy_name', filter.strategy_name);
+    if (filter?.run_status) params.append('run_status', filter.run_status);
+    if (filter?.deployment_status) params.append('deployment_status', filter.deployment_status);
+    if (filter?.limit !== undefined) params.append('limit', filter.limit.toString());
+    if (filter?.offset !== undefined) params.append('offset', filter.offset.toString());
+    const queryString = params.toString();
+    return request<unknown[]>(`/bot-orchestration/bot-runs${queryString ? `?${queryString}` : ''}`);
+  },
   getBotRunById: (botRunId: number) =>
     request<Record<string, unknown>>(`/bot-orchestration/bot-runs/${botRunId}`),
   getBotRunStats: () =>

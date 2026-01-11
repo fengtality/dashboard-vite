@@ -5,15 +5,25 @@
 /**
  * Format a connector name for display
  * e.g., "binance_perpetual_testnet" -> "Binance Perpetual Testnet"
+ * @param name - The connector name
+ * @param stripPerpetual - If true, removes "Perpetual" from the display (useful on perp pages)
  */
-export function formatConnectorName(name: string): string {
-  return name
+export function formatConnectorName(name: string, stripPerpetual: boolean = false): string {
+  let formatted = name
     .replace(/_testnet$/, ' Testnet')
     .replace(/_perpetual$/, ' Perpetual')
     .replace(/_perpetual Testnet$/, ' Perpetual Testnet')
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ');
+
+  if (stripPerpetual) {
+    formatted = formatted
+      .replace(' Perpetual Testnet', ' Testnet')
+      .replace(' Perpetual', '');
+  }
+
+  return formatted;
 }
 
 /**

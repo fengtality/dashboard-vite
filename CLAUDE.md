@@ -4,7 +4,7 @@ This file provides guidance for Claude Code when working on this project.
 
 ## Project Overview
 
-This is **Hummingbot Dashboard**, a browser-based frontend for managing Hummingbot trading bots. It's a TypeScript/React re-implementation of the original Python/Streamlit dashboard, designed to interface with the Hummingbot Backend API server.
+This is **Condor Dashboard**, a browser-based frontend for managing Hummingbot trading bots. It syncs with the Condor Telegram Bot for mobile monitoring and control. The dashboard interfaces with the Hummingbot Backend API server.
 
 ## Tech Stack
 
@@ -20,7 +20,10 @@ This is **Hummingbot Dashboard**, a browser-based frontend for managing Hummingb
 
 ### Global Account Context
 The selected account is managed globally via `AccountProvider` in `src/components/account-provider.tsx`:
-- Account selection persists to localStorage
+- Account selection persists to localStorage (`condor-selected-account`)
+- Timezone preference stored in `condor-timezone`
+- Favorite pairs stored in `condor-favorites`
+- Theme stored in `condor-ui-theme`
 - Available via `useAccount()` hook
 - Account selector is shown in the header (upper right)
 - Pages use the global account instead of their own selectors
@@ -38,7 +41,19 @@ All API calls go through `src/api/client.ts`. The client:
 - Uses `config.api.baseUrl` from environment
 - Adds Basic Auth header from environment credentials
 - Handles JSON serialization
-- Exports typed API modules: `connectors`, `accounts`, `controllers`, `bots`, `archivedBots`, `docker`, `portfolio`, `trading`
+- Exports typed API modules: `connectors`, `accounts`, `controllers`, `scripts`, `bots`, `archivedBots`, `docker`, `portfolio`, `trading`, `marketData`
+
+**Bot Orchestration API** (`bots.*`) - For bot lifecycle management:
+- `getStatus()` - Get all active bots status
+- `getBotStatus(botName)` - Get specific bot status
+- `getBotHistory(botName, options?)` - Get bot history with `{ days?, verbose?, precision?, timeout? }`
+- `startBot(config)` - Start bot with `{ bot_name, log_level?, script?, conf?, async_backend? }`
+- `stopBot(config)` - Stop bot with `{ bot_name, skip_order_cancellation?, async_backend? }`
+- `stopAndArchive(botName, options?)` - Stop and archive with `{ skip_order_cancellation?, archive_locally?, s3_bucket? }`
+- `restartBot(botName, skipOrderCancellation?)` - Restart bot (stop then start)
+- `deployV2Controllers(config)` - Deploy controller-based bot
+- `deployV2Script(config)` - Deploy script-based bot
+- `getBotRuns(filter?)` - Get bot runs with `{ bot_name?, account_name?, strategy_type?, run_status?, limit?, offset? }`
 
 **Trading API** (`trading.*`) - For connector monitoring:
 - `getActiveOrders(filter)` - Get in-flight orders
@@ -87,6 +102,23 @@ Available components:
 - `ThemeProvider` in `src/components/theme-provider.tsx` manages theme state
 - Use semantic color classes: `bg-background`, `text-foreground`, `border-border`, etc.
 - Primary colors: `#00B1BB` (light), `#5FFFD7` (dark)
+
+**Semantic Trading Colors** (use these instead of hardcoded colors):
+- `text-positive`, `bg-positive` - Green for buy, success, bullish, profit
+- `text-negative`, `bg-negative` - Red for sell, error, bearish, loss
+- `text-warning`, `bg-warning` - Amber for warnings, caution
+- `text-success`, `bg-success` - Same as positive (for UI feedback)
+
+Example usage:
+```tsx
+// Good - uses semantic colors
+<span className="text-positive">+$123.45</span>
+<span className="text-negative">-$50.00</span>
+<Button className="bg-positive hover:bg-positive/90">Buy</Button>
+
+// Bad - hardcoded colors
+<span className="text-green-500">+$123.45</span>
+```
 
 ### Routing
 Routes defined in `src/App.tsx`:
@@ -146,6 +178,21 @@ import { cn } from '@/lib/utils';
 - Use `cn()` helper for conditional classes
 - Prefer semantic tokens over hardcoded colors
 - Example: `className={cn('bg-card text-card-foreground', isActive && 'bg-primary')}`
+
+### Shared Utilities
+Located in `src/lib/`:
+- `utils.ts` - General utilities (`cn()` for className merging)
+- `formatting.ts` - Display formatting functions:
+  - `formatConnectorName(name, stripPerpetual?)` - Format connector for display (e.g., "binance_perpetual" → "Binance Perpetual")
+  - `formatBotName(name)` - Format bot name for display
+  - `formatCurrency(value, decimals?, showSign?)` - Format as currency
+  - `formatNumber(value, minDecimals?, maxDecimals?)` - Format with locale separators
+  - `formatPercent(value, decimals?)` - Format as percentage
+  - `formatDate(timestamp, options?)` - Format date/time
+  - `formatRelativeTime(timestamp)` - Format as "2h ago", "3d ago", etc.
+- `connectors.ts` - Connector utilities:
+  - `isPerpetualConnector(name)` - Check if connector is perpetual
+  - `isTestnetConnector(name)` - Check if connector is testnet
 
 ## Common Tasks
 

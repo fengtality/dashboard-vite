@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import { accounts } from '../api/client';
+import { accounts } from '../api/hummingbot-api';
 
 // Get user's local timezone
 function getLocalTimezone(): string {

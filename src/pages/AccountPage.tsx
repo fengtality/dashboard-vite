@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,16 +7,12 @@ import { config } from '@/config';
 import { generateTelegramDeepLink, generateServerName } from '@/lib/deeplink';
 import { useAccount } from '@/components/account-provider';
 import { cn } from '@/lib/utils';
-import { Send, Server, Loader2, User, Star, X, Waypoints, Play, Square, RefreshCw, ChevronDown, Globe, Wallet } from 'lucide-react';
+import { Send, Server, Loader2, User, Star, X, Waypoints } from 'lucide-react';
 import { toast } from 'sonner';
 import { FieldLabel } from '@/components/field-label';
 import { formatConnectorName } from '@/lib/formatting';
 import { isPerpetualConnector } from '@/lib/connectors';
-import { gateway } from '@/api/client';
-import { config as appConfig } from '@/config';
-import type { GatewayNetwork, GatewayWallet } from '@/api/client';
-import { Badge } from '@/components/ui/badge';
-import * as Collapsible from '@radix-ui/react-collapsible';
+import { GatewaySettings } from '@/components/gateway-settings';
 
 const PUBLIC_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'condor_tg_bot';
 
@@ -35,8 +31,8 @@ export default function AccountPage() {
   const { account, setAccount, accountsList, timezone, setTimezone, favorites, removeFavorite } = useAccount();
 
   // Common timezones for the selector
-  const timezones = [
-    { value: Intl.DateTimeFormat().resolvedOptions().timeZone, label: `Local (${Intl.DateTimeFormat().resolvedOptions().timeZone})` },
+  const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const commonTimezones = [
     { value: 'UTC', label: 'UTC' },
     { value: 'America/New_York', label: 'New York (EST/EDT)' },
     { value: 'America/Chicago', label: 'Chicago (CST/CDT)' },
@@ -49,20 +45,13 @@ export default function AccountPage() {
     { value: 'Asia/Dubai', label: 'Dubai (GST)' },
     { value: 'Australia/Sydney', label: 'Sydney (AEST/AEDT)' },
   ];
+  // Add local timezone at the top if it's not already in the list
+  const timezones = commonTimezones.some(tz => tz.value === localTz)
+    ? commonTimezones
+    : [{ value: localTz, label: `Local (${localTz})` }, ...commonTimezones];
   const [loading, setLoading] = useState(false);
   const [botUsername, setBotUsername] = useState(PUBLIC_BOT_USERNAME);
   const [isEditingBot, setIsEditingBot] = useState(false);
-
-  // Gateway state
-  const [gatewayStatus, setGatewayStatus] = useState<'running' | 'stopped' | 'unknown'>('unknown');
-  const [gatewayVersion, setGatewayVersion] = useState<string | null>(null);
-  const [gatewayLoading, setGatewayLoading] = useState(false);
-  const [gatewayActionLoading, setGatewayActionLoading] = useState(false);
-  const [networks, setNetworks] = useState<GatewayNetwork[]>([]);
-  const [wallets, setWallets] = useState<GatewayWallet[]>([]);
-  const [expandedNetwork, setExpandedNetwork] = useState<string | null>(null);
-  const [networkConfigs, setNetworkConfigs] = useState<Record<string, Record<string, unknown>>>({});
-  const [editingNodeUrl, setEditingNodeUrl] = useState<Record<string, string>>({});
 
   // Parse API URL to get host and port
   const apiUrl = config.api.baseUrl;
@@ -70,109 +59,6 @@ export default function AccountPage() {
   const host = urlMatch?.[2] || 'localhost';
   const port = urlMatch?.[3] ? parseInt(urlMatch[3]) : 8000;
   const [serverName, setServerName] = useState(() => generateServerName(host));
-
-  // Fetch Gateway status and data
-  async function fetchGatewayData() {
-    setGatewayLoading(true);
-    try {
-      const status = await gateway.getStatus();
-      const isRunning = status.running === true || status.status === 'running';
-      setGatewayStatus(isRunning ? 'running' : 'stopped');
-      setGatewayVersion(status.gateway_version || null);
-
-      if (isRunning) {
-        // Fetch networks and wallets
-        const [networksRes, walletsRes] = await Promise.all([
-          gateway.listNetworks().catch(() => ({ networks: [] })),
-          gateway.listWallets().catch(() => []),
-        ]);
-        setNetworks(networksRes.networks || []);
-        setWallets(walletsRes || []);
-      }
-    } catch {
-      setGatewayStatus('stopped');
-      setNetworks([]);
-      setWallets([]);
-    } finally {
-      setGatewayLoading(false);
-    }
-  }
-
-  // Fetch on mount when gateway section is active
-  useEffect(() => {
-    if (activeSection === 'gateway') {
-      fetchGatewayData();
-    }
-  }, [activeSection]);
-
-  async function handleGatewayStart() {
-    setGatewayActionLoading(true);
-    try {
-      await gateway.start({ passphrase: appConfig.gateway.passphrase });
-      toast.success('Gateway started');
-      await fetchGatewayData();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to start Gateway');
-    } finally {
-      setGatewayActionLoading(false);
-    }
-  }
-
-  async function handleGatewayStop() {
-    setGatewayActionLoading(true);
-    try {
-      await gateway.stop();
-      toast.success('Gateway stopped');
-      setGatewayStatus('stopped');
-      setNetworks([]);
-      setWallets([]);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to stop Gateway');
-    } finally {
-      setGatewayActionLoading(false);
-    }
-  }
-
-  async function handleGatewayRestart() {
-    setGatewayActionLoading(true);
-    try {
-      await gateway.restart();
-      toast.success('Gateway restarted');
-      await fetchGatewayData();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to restart Gateway');
-    } finally {
-      setGatewayActionLoading(false);
-    }
-  }
-
-  async function fetchNetworkConfig(networkId: string) {
-    try {
-      const config = await gateway.getNetworkConfig(networkId);
-      setNetworkConfigs(prev => ({ ...prev, [networkId]: config }));
-      if (config.nodeURL) {
-        setEditingNodeUrl(prev => ({ ...prev, [networkId]: config.nodeURL as string }));
-      }
-    } catch (err) {
-      console.error('Failed to fetch network config:', err);
-    }
-  }
-
-  async function handleUpdateNodeUrl(networkId: string) {
-    const newUrl = editingNodeUrl[networkId];
-    if (!newUrl) return;
-
-    try {
-      await gateway.updateNetworkConfig(networkId, { nodeURL: newUrl });
-      toast.success(`Updated ${networkId} node URL`);
-      setNetworkConfigs(prev => ({
-        ...prev,
-        [networkId]: { ...prev[networkId], nodeURL: newUrl }
-      }));
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to update node URL');
-    }
-  }
 
   function handleConnectTelegram() {
     if (!botUsername) {
@@ -386,209 +272,12 @@ export default function AccountPage() {
         )}
 
         {activeSection === 'gateway' && (
-          <div className="space-y-8">
-            {/* Gateway Status & Controls */}
-            <div>
-              <h2 className="text-xl font-semibold mb-1">Gateway Server</h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                Manage the Hummingbot Gateway server for DEX trading.
-              </p>
-
-              {gatewayLoading ? (
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Loader2 className="animate-spin" size={16} />
-                  <span>Loading Gateway status...</span>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* Status */}
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <span className={cn(
-                        "h-2.5 w-2.5 rounded-full",
-                        gatewayStatus === 'running' ? "bg-success" : "bg-muted-foreground"
-                      )} />
-                      <span className="font-medium capitalize">{gatewayStatus}</span>
-                      {gatewayVersion && (
-                        <Badge variant="secondary" className="text-xs">v{gatewayVersion}</Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Controls */}
-                  <div className="flex flex-wrap gap-2">
-                    {gatewayStatus === 'running' ? (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleGatewayStop}
-                          disabled={gatewayActionLoading}
-                        >
-                          {gatewayActionLoading ? (
-                            <Loader2 className="animate-spin mr-2" size={14} />
-                          ) : (
-                            <Square size={14} className="mr-2" />
-                          )}
-                          Stop
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleGatewayRestart}
-                          disabled={gatewayActionLoading}
-                        >
-                          <RefreshCw size={14} className="mr-2" />
-                          Restart
-                        </Button>
-                      </>
-                    ) : (
-                      <Button
-                        size="sm"
-                        onClick={handleGatewayStart}
-                        disabled={gatewayActionLoading}
-                      >
-                        {gatewayActionLoading ? (
-                          <Loader2 className="animate-spin mr-2" size={14} />
-                        ) : (
-                          <Play size={14} className="mr-2" />
-                        )}
-                        Start Gateway
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={fetchGatewayData}
-                      disabled={gatewayLoading}
-                    >
-                      <RefreshCw size={14} />
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Networks */}
-            {gatewayStatus === 'running' && networks.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
-                  <Globe size={18} />
-                  Networks
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Configure RPC endpoints for each blockchain network.
-                </p>
-                <div className="space-y-2">
-                  {networks.map((network) => (
-                    <Collapsible.Root
-                      key={network.network_id}
-                      open={expandedNetwork === network.network_id}
-                      onOpenChange={(open) => {
-                        setExpandedNetwork(open ? network.network_id : null);
-                        if (open && !networkConfigs[network.network_id]) {
-                          fetchNetworkConfig(network.network_id);
-                        }
-                      }}
-                    >
-                      <Collapsible.Trigger asChild>
-                        <button className="w-full flex items-center justify-between p-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <span className="w-8 h-8 rounded-md bg-muted flex items-center justify-center text-xs font-semibold uppercase">
-                              {network.chain?.slice(0, 2) || '??'}
-                            </span>
-                            <div className="text-left">
-                              <p className="font-medium">{network.network_id}</p>
-                              <p className="text-xs text-muted-foreground">{network.chain} • {network.network}</p>
-                            </div>
-                          </div>
-                          <ChevronDown
-                            size={16}
-                            className={cn(
-                              "text-muted-foreground transition-transform",
-                              expandedNetwork === network.network_id && "rotate-180"
-                            )}
-                          />
-                        </button>
-                      </Collapsible.Trigger>
-                      <Collapsible.Content className="mt-2 p-4 rounded-lg border border-border bg-muted/30">
-                        {networkConfigs[network.network_id] ? (
-                          <div className="space-y-4">
-                            <div>
-                              <label className="text-sm text-muted-foreground">Node URL (RPC Endpoint)</label>
-                              <div className="flex gap-2 mt-1">
-                                <Input
-                                  value={editingNodeUrl[network.network_id] || ''}
-                                  onChange={(e) => setEditingNodeUrl(prev => ({
-                                    ...prev,
-                                    [network.network_id]: e.target.value
-                                  }))}
-                                  placeholder="https://..."
-                                  className="font-mono text-sm"
-                                />
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleUpdateNodeUrl(network.network_id)}
-                                  disabled={editingNodeUrl[network.network_id] === networkConfigs[network.network_id]?.nodeURL}
-                                >
-                                  Save
-                                </Button>
-                              </div>
-                            </div>
-                            {network.nativeCurrencySymbol && (
-                              <div className="text-sm">
-                                <span className="text-muted-foreground">Native Currency: </span>
-                                <span className="font-medium">{network.nativeCurrencySymbol}</span>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Loader2 className="animate-spin" size={14} />
-                            <span className="text-sm">Loading config...</span>
-                          </div>
-                        )}
-                      </Collapsible.Content>
-                    </Collapsible.Root>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Wallets */}
-            {gatewayStatus === 'running' && wallets.length > 0 && (
-              <div>
-                <h3 className="text-lg font-semibold mb-1 flex items-center gap-2">
-                  <Wallet size={18} />
-                  Wallets
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Connected wallet addresses by chain.
-                </p>
-                <div className="space-y-3">
-                  {wallets.map((wallet) => (
-                    <div key={wallet.chain} className="p-3 rounded-lg border border-border bg-card">
-                      <p className="font-medium capitalize mb-2">{wallet.chain}</p>
-                      <div className="space-y-1">
-                        {wallet.walletAddresses.map((addr) => (
-                          <p key={addr} className="font-mono text-xs text-muted-foreground truncate">
-                            {addr}
-                          </p>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Empty state when Gateway is stopped */}
-            {gatewayStatus !== 'running' && !gatewayLoading && (
-              <div className="text-center py-8 text-muted-foreground">
-                <Waypoints size={48} className="mx-auto mb-4 opacity-50" />
-                <p>Start the Gateway server to configure networks and wallets.</p>
-              </div>
-            )}
+          <div>
+            <h2 className="text-xl font-semibold mb-1">Gateway Server</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Manage the Hummingbot Gateway server for DEX trading.
+            </p>
+            <GatewaySettings />
           </div>
         )}
 

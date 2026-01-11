@@ -17,6 +17,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
+      '/gateway': {
+        target: 'http://localhost:15888',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/gateway/, ''),
+      },
     },
   },
 })

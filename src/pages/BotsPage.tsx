@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { bots, archivedBots } from '@/api/client';
-import type { BotStatus, ArchivedBot, PerformanceData } from '@/api/client';
+import { bots, archivedBots } from '@/api/hummingbot-api';
+import type { BotStatus, ArchivedBot, PerformanceData } from '@/api/hummingbot-api';
 import {
   Loader2,
   Bot,
@@ -150,17 +150,19 @@ export default function BotsPage() {
       </div>
 
       <Tabs defaultValue="active">
-        <TabsList className="bg-background gap-1 border p-1 mb-4">
+        <TabsList className="bg-transparent h-auto p-0 gap-0 border-b border-border rounded-none w-full justify-start mb-6">
           <TabsTrigger
             value="active"
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3"
           >
+            <Bot className="h-4 w-4 mr-2" />
             Active ({botEntries.length})
           </TabsTrigger>
           <TabsTrigger
             value="archived"
-            className="data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3"
           >
+            <Archive className="h-4 w-4 mr-2" />
             Archived ({archivedBotsList.length})
           </TabsTrigger>
         </TabsList>

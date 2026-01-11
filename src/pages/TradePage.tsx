@@ -15,8 +15,8 @@ function useIsMobile(breakpoint = 768) {
   return isMobile;
 }
 import { useAccount } from '@/components/account-provider';
-import { portfolio, trading, connectors, marketData, accounts, controllers } from '@/api/client';
-import type { PortfolioBalance, PaginatedResponse, TradingRule, TradeRequest } from '@/api/client';
+import { portfolio, trading, connectors, marketData, accounts, controllers } from '@/api/hummingbot-api';
+import type { PortfolioBalance, PaginatedResponse, TradingRule, TradeRequest } from '@/api/hummingbot-api';
 import { Loader2, Activity, Settings, Rocket, RefreshCw, Info, Key, Star } from 'lucide-react';
 import {
   Empty,

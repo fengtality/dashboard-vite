@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { controllers, scripts } from '../api/client';
+import { controllers, scripts } from '../api/hummingbot-api';
 import { generateConfigName } from '@/lib/utils';
 import { Loader2, SlidersHorizontal, RefreshCw, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';

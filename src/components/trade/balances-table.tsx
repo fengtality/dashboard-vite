@@ -1,6 +1,6 @@
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { PortfolioBalance } from '@/api/client';
+import type { PortfolioBalance } from '@/api/hummingbot-api';
 
 interface BalancesTableProps {
   balances: PortfolioBalance[];

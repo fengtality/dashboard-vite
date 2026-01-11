@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useAccount } from '@/components/account-provider';
-import { accounts, bots } from '@/api/client';
-import type { BotStatus } from '@/api/client';
+import { accounts, bots } from '@/api/hummingbot-api';
+import type { BotStatus } from '@/api/hummingbot-api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

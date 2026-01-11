@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { controllers, scripts, docker, bots } from '../api/client';
-import type { ControllerConfig, ScriptConfig } from '../api/client';
+import { controllers, scripts, docker, bots } from '../api/hummingbot-api';
+import type { ControllerConfig, ScriptConfig } from '../api/hummingbot-api';
 import { useAccount } from '@/components/account-provider';
 import { Loader2, Rocket, AlertCircle, ChevronDown } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';

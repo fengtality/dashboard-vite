@@ -1,5 +1,5 @@
 import { Badge } from '@/components/ui/badge';
-import type { PaginatedResponse } from '@/api/client';
+import type { PaginatedResponse } from '@/api/hummingbot-api';
 
 interface TradesTableProps {
   trades: PaginatedResponse | null;

@@ -7,10 +7,11 @@ A modern, browser-based dashboard for managing trading bots powered by [Hummingb
 This dashboard provides a frontend interface for the Hummingbot API server, allowing you to:
 
 - **Trade** - View market data (order book, price charts), place orders, and run trading bots on spot and perpetual markets
+- **AMM Markets** - Swap tokens and manage liquidity positions on DEXs via Hummingbot Gateway
 - **Manage Keys** - Add and remove exchange API keys for spot and perpetual connectors
 - **Strategies** - Browse, create, and configure V2 controller strategies (Grid Strike, etc.)
 - **Bots** - Deploy, monitor, start/stop, and archive trading bots
-- **Settings** - Configure account preferences and application settings
+- **Settings** - Configure account preferences, Gateway server, and application settings
 
 ## Tech Stack
 
@@ -50,6 +51,8 @@ Configure the dashboard by editing `.env`:
 | `VITE_API_URL` | `/api` | Hummingbot API URL (use `/api` for dev proxy) |
 | `VITE_API_USERNAME` | `admin` | Basic auth username |
 | `VITE_API_PASSWORD` | `admin` | Basic auth password |
+| `VITE_GATEWAY_URL` | `/gateway` | Gateway direct URL (use `/gateway` for dev proxy) |
+| `VITE_GATEWAY_API_KEY` | | Optional Gateway API key |
 | `VITE_TELEGRAM_BOT_USERNAME` | `condor_tg_bot` | Condor Telegram Bot username |
 
 **Note:** The `.env` file is git-ignored to prevent committing credentials.
@@ -78,7 +81,13 @@ npm run preview
 ```
 src/
 ├── api/
-│   └── client.ts             # API client for Hummingbot API
+│   ├── gateway/              # Direct Gateway client (localhost:15888)
+│   │   ├── core/             # Config, fetch utilities, errors
+│   │   ├── namespaces/       # API namespaces (config, chains, pools, etc.)
+│   │   ├── types/            # TypeScript interfaces
+│   │   └── index.ts          # GatewayClient class
+│   ├── hummingbot-api.ts     # Hummingbot Backend API client
+│   └── index.ts              # Unified API facade
 ├── components/
 │   ├── ui/                   # shadcn/ui components
 │   │   ├── alert.tsx
@@ -120,7 +129,7 @@ src/
 
 ### API Proxy
 
-The development server proxies `/api` requests to the Hummingbot API. Configure in `vite.config.ts`:
+The development server proxies API requests to backend services. Configure in `vite.config.ts`:
 
 ```typescript
 server: {
@@ -129,6 +138,11 @@ server: {
       target: 'http://localhost:8000',
       changeOrigin: true,
       rewrite: (path) => path.replace(/^\/api/, ''),
+    },
+    '/gateway': {
+      target: 'http://localhost:15888',
+      changeOrigin: true,
+      rewrite: (path) => path.replace(/^\/gateway/, ''),
     },
   },
 },
@@ -151,9 +165,11 @@ Primary colors:
 | `npm run preview` | Preview production build |
 | `npm run lint` | Run ESLint |
 
-## Hummingbot API
+## Backend Services
 
-This dashboard requires the [Hummingbot API](https://github.com/hummingbot/hummingbot-api) server running. The API provides endpoints for:
+### Hummingbot API
+
+This dashboard requires the [Hummingbot API](https://github.com/hummingbot/hummingbot-api) server running at `localhost:8000`. The API provides endpoints for:
 
 - `/connectors` - Exchange connector management
 - `/accounts` - Account and credential management
@@ -165,6 +181,19 @@ This dashboard requires the [Hummingbot API](https://github.com/hummingbot/hummi
 - `/archived-bots` - Historical bot data
 - `/portfolio` - Portfolio state and balances
 - `/docker` - Docker container management
+- `/gateway/*` - Gateway server lifecycle and DEX execution
+
+### Hummingbot Gateway
+
+The dashboard connects directly to [Hummingbot Gateway](https://github.com/hummingbot/gateway) at `localhost:15888` for DEX operations:
+
+- `/config` - Gateway configuration (chains, connectors, namespaces)
+- `/chain/*` - Blockchain operations (balances, tokens, transactions)
+- `/amm/*` - AMM pool operations
+- `/clmm/*` - Concentrated liquidity operations
+- `/router/*` - DEX aggregator quotes
+
+Gateway is started/stopped via the Hummingbot API's Docker management endpoints.
 
 ## Contributing
 

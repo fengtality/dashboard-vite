@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { connectors, accounts, portfolio } from '../api/client';
-import type { PortfolioBalance } from '../api/client';
+import { connectors, accounts, portfolio } from '../api/hummingbot-api';
+import type { PortfolioBalance } from '../api/hummingbot-api';
+import { gatewayClient } from '@/api/gateway';
+import type { WalletInfo } from '@/api/gateway';
 import { useAccount } from '@/components/account-provider';
 import { isPerpetualConnector } from '@/lib/connectors';
-import { Loader2, Plus, Trash2, Key, Wallet, RefreshCw, AlertCircle, Coins, TrendingUp } from 'lucide-react';
+import { Loader2, Plus, Trash2, Key, Wallet, RefreshCw, AlertCircle, Coins, TrendingUp, Star } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -12,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Combobox } from '@/components/ui/combobox';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,7 +26,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-type ConnectorType = 'spot' | 'perpetual';
+type ConnectorType = 'spot' | 'perpetual' | 'gateway';
 
 export default function ManageKeys() {
   const { account } = useAccount();
@@ -48,6 +51,13 @@ export default function ManageKeys() {
 
   // Trigger to refresh credentials list
   const [refreshKey, setRefreshKey] = useState(0);
+
+  // Gateway wallet state
+  const [wallets, setWallets] = useState<WalletInfo[]>([]);
+  const [loadingWallets, setLoadingWallets] = useState(false);
+  const [selectedChain, setSelectedChain] = useState<string>('solana');
+  const [privateKey, setPrivateKey] = useState<string>('');
+  const [walletToDelete, setWalletToDelete] = useState<{ chain: string; address: string } | null>(null);
 
   useEffect(() => {
     async function fetchConnectors() {
@@ -108,6 +118,75 @@ export default function ManageKeys() {
     setBalances({});
     setBalanceErrors({});
   }, [account]);
+
+  // Fetch Gateway wallets when tab is selected
+  useEffect(() => {
+    if (connectorType === 'gateway') {
+      fetchWallets();
+    }
+  }, [connectorType, refreshKey]);
+
+  async function fetchWallets() {
+    setLoadingWallets(true);
+    try {
+      const walletList = await gatewayClient.wallet.list();
+      setWallets(walletList);
+    } catch {
+      setWallets([]);
+    } finally {
+      setLoadingWallets(false);
+    }
+  }
+
+  async function handleAddWallet(e: React.FormEvent) {
+    e.preventDefault();
+    if (!privateKey.trim()) return;
+
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const result = await gatewayClient.wallet.add({
+        chain: selectedChain,
+        privateKey: privateKey.trim(),
+      });
+      toast.success(`Wallet added: ${result.address.slice(0, 8)}...${result.address.slice(-6)}`);
+      setPrivateKey('');
+      setRefreshKey(k => k + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add wallet');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleRemoveWallet() {
+    if (!walletToDelete) return;
+
+    try {
+      await gatewayClient.wallet.remove({
+        chain: walletToDelete.chain,
+        address: walletToDelete.address,
+      });
+      toast.success('Wallet removed');
+      setRefreshKey(k => k + 1);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove wallet');
+    } finally {
+      setDeleteDialogOpen(false);
+      setWalletToDelete(null);
+    }
+  }
+
+  async function handleSetDefault(chain: string, address: string) {
+    try {
+      await gatewayClient.wallet.setDefault({ chain, address });
+      toast.success('Default wallet updated');
+      setRefreshKey(k => k + 1);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to set default');
+    }
+  }
 
   async function fetchBalance(connectorName: string) {
     if (!account) return;
@@ -263,31 +342,203 @@ export default function ManageKeys() {
       {/* Connector Type Toggle */}
       <div className="mb-6">
         <Tabs value={connectorType} onValueChange={(v) => setConnectorType(v as ConnectorType)}>
-          <TabsList className="bg-background gap-1 border p-1">
+          <TabsList className="bg-transparent h-auto p-0 gap-0 border-b border-border rounded-none w-full justify-start">
             <TabsTrigger
               value="spot"
-              className="data-[state=active]:bg-primary dark:data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:text-primary-foreground"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3"
             >
               <Coins className="h-4 w-4 mr-2" />
               Spot
             </TabsTrigger>
             <TabsTrigger
               value="perpetual"
-              className="data-[state=active]:bg-primary dark:data-[state=active]:bg-primary data-[state=active]:text-primary-foreground dark:data-[state=active]:text-primary-foreground"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3"
             >
               <TrendingUp className="h-4 w-4 mr-2" />
               Perpetual
+            </TabsTrigger>
+            <TabsTrigger
+              value="gateway"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-6 py-3"
+            >
+              <Wallet className="h-4 w-4 mr-2" />
+              Wallets
             </TabsTrigger>
           </TabsList>
         </Tabs>
       </div>
 
-      {/* Existing Keys */}
-      {filteredExistingCredentials.length > 0 && (
-        <div className="mb-8">
-          <h2 className="text-lg font-medium text-foreground mb-4">
-            Existing {connectorType === 'perpetual' ? 'Perpetual' : 'Spot'} Connector Keys
-          </h2>
+      {/* Gateway Wallets */}
+      {connectorType === 'gateway' ? (
+        <>
+          {/* Existing Wallets */}
+          {loadingWallets ? (
+            <div className="flex items-center justify-center h-32">
+              <Loader2 className="animate-spin text-primary" size={24} />
+            </div>
+          ) : (
+            <div className="space-y-6 mb-8">
+              {/* Solana Wallets */}
+              {wallets.filter(w => w.chain === 'solana').length > 0 && (
+                <div>
+                  <h2 className="text-lg font-medium text-foreground mb-3">Solana Wallets</h2>
+                  <div className="space-y-2">
+                    {wallets.filter(w => w.chain === 'solana').map((wallet) => (
+                      <Card key={`${wallet.chain}-${wallet.address}`}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <Wallet className="text-success shrink-0" size={18} />
+                              <span className="text-foreground text-sm sm:text-base truncate">
+                                {wallet.address.slice(0, 8)}...{wallet.address.slice(-6)}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {wallet.isDefault ? (
+                                <span className="flex items-center gap-1 text-warning text-sm">
+                                  <Star size={14} fill="currentColor" />
+                                  <span className="hidden sm:inline">Default</span>
+                                </span>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleSetDefault(wallet.chain, wallet.address)}
+                                >
+                                  <Star className="mr-1" size={14} />
+                                  <span className="hidden sm:inline">Set Default</span>
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setWalletToDelete({ chain: wallet.chain, address: wallet.address });
+                                  setDeleteDialogOpen(true);
+                                }}
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              >
+                                <Trash2 size={18} />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Ethereum Wallets */}
+              {wallets.filter(w => w.chain === 'ethereum').length > 0 && (
+                <div>
+                  <h2 className="text-lg font-medium text-foreground mb-3">Ethereum Wallets</h2>
+                  <div className="space-y-2">
+                    {wallets.filter(w => w.chain === 'ethereum').map((wallet) => (
+                      <Card key={`${wallet.chain}-${wallet.address}`}>
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <Wallet className="text-success shrink-0" size={18} />
+                              <span className="text-foreground text-sm sm:text-base truncate">
+                                {wallet.address.slice(0, 8)}...{wallet.address.slice(-6)}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              {wallet.isDefault ? (
+                                <span className="flex items-center gap-1 text-warning text-sm">
+                                  <Star size={14} fill="currentColor" />
+                                  <span className="hidden sm:inline">Default</span>
+                                </span>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleSetDefault(wallet.chain, wallet.address)}
+                                >
+                                  <Star className="mr-1" size={14} />
+                                  <span className="hidden sm:inline">Set Default</span>
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setWalletToDelete({ chain: wallet.chain, address: wallet.address });
+                                  setDeleteDialogOpen(true);
+                                }}
+                                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                              >
+                                <Trash2 size={18} />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Add New Wallet */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Plus size={20} />
+                Add New Wallet
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleAddWallet} className="space-y-4">
+                <div className="grid w-full items-center gap-1.5">
+                  <Label htmlFor="chain">Chain</Label>
+                  <Select value={selectedChain} onValueChange={setSelectedChain}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select chain" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="solana">Solana</SelectItem>
+                      <SelectItem value="ethereum">Ethereum</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid w-full items-center gap-1.5">
+                  <Label htmlFor="privateKey">Private Key</Label>
+                  <Input
+                    id="privateKey"
+                    type="password"
+                    value={privateKey}
+                    onChange={(e) => setPrivateKey(e.target.value)}
+                    placeholder="Enter private key"
+                  />
+                </div>
+                <Button type="submit" disabled={submitting || !privateKey.trim()} className="w-full">
+                  {submitting ? (
+                    <>
+                      <Loader2 className="animate-spin mr-2" size={18} />
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="mr-2" size={18} />
+                      Add Wallet
+                    </>
+                  )}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        <>
+          {/* Existing Keys */}
+          {filteredExistingCredentials.length > 0 && (
+            <div className="mb-8">
+              <h2 className="text-lg font-medium text-foreground mb-4">
+                Existing {connectorType === 'perpetual' ? 'Perpetual' : 'Spot'} Connector Keys
+              </h2>
           <div className="space-y-2">
             {filteredExistingCredentials.map((cred) => (
               <Card key={cred}>
@@ -469,20 +720,28 @@ export default function ManageKeys() {
           </form>
         </CardContent>
       </Card>
+        </>
+      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Keys</AlertDialogTitle>
+            <AlertDialogTitle>
+              {walletToDelete ? 'Remove Wallet' : 'Delete Keys'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete keys for "{connectorToDelete}"?
-              This action cannot be undone.
+              {walletToDelete
+                ? `Are you sure you want to remove wallet ${walletToDelete.address.slice(0, 8)}...${walletToDelete.address.slice(-6)}?`
+                : `Are you sure you want to delete keys for "${connectorToDelete}"?`}
+              {' '}This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+            <AlertDialogCancel onClick={() => setWalletToDelete(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={walletToDelete ? handleRemoveWallet : handleDelete}>
+              {walletToDelete ? 'Remove' : 'Delete'}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

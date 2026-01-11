@@ -1,8 +1,8 @@
 import { useParams, Link } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { bots, controllers } from '@/api/client';
-import type { BotStatus } from '@/api/client';
+import { bots, controllers } from '@/api/hummingbot-api';
+import type { BotStatus } from '@/api/hummingbot-api';
 import {
   Loader2,
   ArrowLeft,

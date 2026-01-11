@@ -1,6 +1,6 @@
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import type { PaginatedResponse } from '@/api/client';
+import type { PaginatedResponse } from '@/api/hummingbot-api';
 
 interface OrdersTableProps {
   orders: PaginatedResponse | null;

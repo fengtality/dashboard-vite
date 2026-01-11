@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { controllers, marketData, connectors } from '../api/client';
+import { controllers, marketData, connectors } from '../api/hummingbot-api';
 import { generateConfigName } from '@/lib/utils';
 import { Loader2, Zap, RefreshCw, ArrowLeft } from 'lucide-react';
 import { CandlestickChart } from '@/components/ui/candlestick-chart';

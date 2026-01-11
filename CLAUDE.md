@@ -30,18 +30,71 @@ The selected account is managed globally via `AccountProvider` in `src/component
 
 ### Configuration
 Environment variables are defined in `.env` (copy from `.env.example`):
-- `VITE_API_URL` - API base URL (default: `/api` for dev proxy)
+- `VITE_API_URL` - Hummingbot API base URL (default: `/api` for dev proxy)
 - `VITE_API_USERNAME` - Basic auth username
 - `VITE_API_PASSWORD` - Basic auth password
+- `VITE_GATEWAY_URL` - Gateway direct URL (default: `/gateway` for dev proxy)
+- `VITE_GATEWAY_API_KEY` - Optional Gateway API key
 
 Configuration is centralized in `src/config.ts`.
 
-### API Client Pattern
-All API calls go through `src/api/client.ts`. The client:
-- Uses `config.api.baseUrl` from environment
-- Adds Basic Auth header from environment credentials
-- Handles JSON serialization
-- Exports typed API modules: `connectors`, `accounts`, `controllers`, `scripts`, `bots`, `archivedBots`, `docker`, `portfolio`, `trading`, `marketData`
+### API Client Architecture
+The dashboard uses a **dual-client architecture** for API calls:
+
+1. **Gateway Client** (`src/api/gateway/`) - Direct connection to Gateway server at `localhost:15888`
+   - Used for read-only DEX operations (config, chains, pools, quotes)
+   - Designed to be extractable to a standalone `@hummingbot/gateway-client` package
+
+2. **Hummingbot API Client** (`src/api/hummingbot-api.ts`) - Connection to Backend API at `/api`
+   - Used for write operations that persist to PostgreSQL (swaps, LP positions)
+   - Used for Gateway server management (start/stop via Docker)
+   - Used for CEX trading, bot orchestration, accounts, etc.
+
+#### Gateway Client (`src/api/gateway/`)
+```typescript
+import { gatewayClient } from '@/api/gateway';
+
+// Configuration
+const chains = await gatewayClient.config.getChains();
+const connectors = await gatewayClient.config.getConnectors();
+const allConfig = await gatewayClient.config.getAll();
+await gatewayClient.config.update({ namespace: 'solana', path: 'maxFee', value: 0.01 });
+
+// Server management
+const health = await gatewayClient.health();  // GET /
+const status = await gatewayClient.status();  // GET /status
+await gatewayClient.restart();                // POST /restart
+
+// Chain operations
+const balances = await gatewayClient.chains.getBalances('solana', { network: 'mainnet-beta', address });
+const tokens = await gatewayClient.chains.getTokens('solana', 'mainnet-beta');
+
+// Pool operations
+const pools = await gatewayClient.pools.list('raydium', 'mainnet-beta', 'clmm');
+const poolInfo = await gatewayClient.pools.getInfo('raydium', 'solana-mainnet-beta', poolAddress);
+
+// Swap quotes (read-only)
+const quote = await gatewayClient.trading.quoteSwap({ ... });
+```
+
+#### Hummingbot API Client (`src/api/hummingbot-api.ts`)
+```typescript
+import { gateway, gatewayCLMM, gatewaySwap } from '@/api/hummingbot-api';
+
+// Gateway server lifecycle (Docker container)
+await gateway.start({ passphrase, image, dev_mode });
+await gateway.stop();
+const status = await gateway.getStatus();
+
+// Execute operations (writes to PostgreSQL)
+await gatewaySwap.execute({ ...quote, walletAddress });
+await gatewayCLMM.open({ ... });
+await gatewayCLMM.close({ ... });
+
+// Query historical data from DB
+const swapHistory = await gatewaySwap.search({ limit: 50 });
+const positions = await gatewayCLMM.searchPositions({ status: 'CLOSED' });
+```
 
 **Bot Orchestration API** (`bots.*`) - For bot lifecycle management:
 - `getStatus()` - Get all active bots status
@@ -356,7 +409,9 @@ npm run build    # Production build
 npm run lint     # Run ESLint
 ```
 
-The dev server proxies `/api/*` to `http://localhost:8000` (Backend API).
+The dev server proxies:
+- `/api/*` → `http://localhost:8000` (Hummingbot Backend API)
+- `/gateway/*` → `http://localhost:15888` (Gateway server)
 
 ## Important Notes
 

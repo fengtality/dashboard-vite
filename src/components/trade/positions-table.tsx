@@ -1,4 +1,4 @@
-import type { PaginatedResponse } from '@/api/client';
+import type { PaginatedResponse } from '@/api/hummingbot-api';
 
 interface PositionsTableProps {
   positions: PaginatedResponse | null;

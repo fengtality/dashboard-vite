@@ -1,6 +1,8 @@
 import { useEffect, useState, useLayoutEffect, useMemo } from 'react';
-import { gateway, gatewaySwap, gatewayCLMM, gatewayAMM } from '@/api/client';
-import type { GatewayNetwork, GatewayConnector, SwapQuote, CLMMPosition, PoolInfo, PaginatedResponse } from '@/api/client';
+import { gatewayClient } from '@/api/gateway';
+import type { ConnectorConfig } from '@/api/gateway';
+import { gatewaySwap, gatewayCLMM } from '@/api/hummingbot-api';
+import type { SwapQuote, CLMMPosition, PoolInfo, PaginatedResponse } from '@/api/hummingbot-api';
 import { Loader2, RefreshCw, Info, ArrowDownUp, Droplets, Wallet, History, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,9 +59,9 @@ export default function AMMPage() {
   const [gatewayRunning, setGatewayRunning] = useState(false);
   const [loadingGateway, setLoadingGateway] = useState(true);
 
-  // Network & connector selection
-  const [networks, setNetworks] = useState<GatewayNetwork[]>([]);
-  const [connectors, setConnectors] = useState<GatewayConnector[]>([]);
+  // Network & connector selection (using gateway types)
+  const [chains, setChains] = useState<{ chain: string; networks: string[] }[]>([]);
+  const [connectors, setConnectors] = useState<ConnectorConfig[]>([]);
   const [selectedNetwork, setSelectedNetwork] = useState<string>('');
   const [selectedConnector, setSelectedConnector] = useState<string>('');
 
@@ -109,21 +111,23 @@ export default function AMMPage() {
     });
   }, [connectors, selectedNetwork]);
 
-  // Check Gateway status and fetch data
+  // Check Gateway status and fetch config (no balances)
   useEffect(() => {
     async function checkGateway() {
       setLoadingGateway(true);
       try {
-        const status = await gateway.getStatus();
-        const running = status.running === true || status.status === 'running';
+        // Use direct gateway health check
+        const health = await gatewayClient.health();
+        const running = health.status === 'ok';
         setGatewayRunning(running);
 
         if (running) {
-          const [networksRes, connectorsRes] = await Promise.all([
-            gateway.listNetworks().catch(() => ({ networks: [] })),
-            gateway.listConnectors().catch(() => ({ connectors: [] })),
+          // Fetch chains and connectors directly from Gateway (no balance fetching)
+          const [chainsRes, connectorsRes] = await Promise.all([
+            gatewayClient.config.getChains().catch(() => ({ chains: [] })),
+            gatewayClient.config.getConnectors().catch(() => ({ connectors: [] })),
           ]);
-          setNetworks(networksRes.networks || []);
+          setChains(chainsRes.chains || []);
           setConnectors(connectorsRes.connectors || []);
         }
       } catch {
@@ -135,7 +139,7 @@ export default function AMMPage() {
     checkGateway();
   }, []);
 
-  // Fetch pools when connector changes
+  // Fetch pools when connector changes (using direct gateway client)
   useEffect(() => {
     if (!selectedNetwork || !selectedConnector) {
       setPools([]);
@@ -145,8 +149,19 @@ export default function AMMPage() {
     async function fetchPools() {
       setLoadingPools(true);
       try {
-        const res = await gatewayAMM.getPools(selectedConnector, selectedNetwork);
-        setPools(res.pools || []);
+        // Extract network from chain-network format
+        const networkParts = selectedNetwork.split('-');
+        const network = networkParts.slice(1).join('-') || networkParts[0];
+        const poolTemplates = await gatewayClient.pools.list(selectedConnector, network);
+        // Convert PoolTemplate to PoolInfo format
+        setPools(poolTemplates.map(p => ({
+          address: p.address,
+          connector: p.connector || selectedConnector,
+          network: p.network,
+          base_token: p.baseSymbol,
+          quote_token: p.quoteSymbol,
+          fee_tier: p.feePct,
+        })));
       } catch {
         setPools([]);
       } finally {
@@ -156,7 +171,7 @@ export default function AMMPage() {
     fetchPools();
   }, [selectedNetwork, selectedConnector]);
 
-  // Fetch pool info when pool address changes
+  // Fetch pool info when pool address changes (using direct gateway client)
   useEffect(() => {
     if (!selectedNetwork || !selectedConnector || !poolAddress) {
       setSelectedPool(null);
@@ -176,10 +191,19 @@ export default function AMMPage() {
     async function fetchPoolInfo() {
       setLoadingPoolInfo(true);
       try {
-        const poolInfo = await gatewayAMM.getPoolInfo(selectedConnector, selectedNetwork, poolAddress);
-        setSelectedPool(poolInfo);
-        setSwapFromToken(poolInfo.base_token);
-        setSwapToToken(poolInfo.quote_token);
+        const chainNetwork = selectedNetwork; // Already in chain-network format
+        const poolInfo = await gatewayClient.pools.getInfo(selectedConnector, chainNetwork, poolAddress);
+        const pool: PoolInfo = {
+          address: poolInfo.address,
+          connector: selectedConnector,
+          network: selectedNetwork,
+          base_token: poolInfo.baseTokenAddress,
+          quote_token: poolInfo.quoteTokenAddress,
+          fee_tier: poolInfo.feePct,
+        };
+        setSelectedPool(pool);
+        setSwapFromToken(pool.base_token);
+        setSwapToToken(pool.quote_token);
       } catch {
         // Address might be invalid or not a pool
         setSelectedPool(null);
@@ -321,21 +345,31 @@ export default function AMMPage() {
     setSwapToToken(pool.quote_token);
   }
 
-  // Network options for combobox
+  // Network options for combobox (built from chains data)
   const networkOptions = useMemo(() => {
+    // Build network IDs from chains response (format: chain-network)
+    const apiNetworkIds = new Set<string>();
+    chains.forEach(c => {
+      c.networks.forEach(network => {
+        apiNetworkIds.add(`${c.chain}-${network}`);
+      });
+    });
+
     // Combine common networks with any additional from API
-    const apiNetworkIds = new Set(networks.map(n => n.network_id));
     const combined = [...COMMON_NETWORKS.filter(n => apiNetworkIds.has(n.id) || apiNetworkIds.size === 0)];
 
     // Add any networks from API not in common list
-    networks.forEach(n => {
-      if (!COMMON_NETWORKS.find(c => c.id === n.network_id)) {
-        combined.push({ id: n.network_id, chain: n.chain, label: n.network_id });
-      }
+    chains.forEach(c => {
+      c.networks.forEach(network => {
+        const networkId = `${c.chain}-${network}`;
+        if (!COMMON_NETWORKS.find(cn => cn.id === networkId)) {
+          combined.push({ id: networkId, chain: c.chain, label: `${c.chain} ${network}` });
+        }
+      });
     });
 
     return combined.map(n => ({ value: n.id, label: n.label }));
-  }, [networks]);
+  }, [chains]);
 
   // Connector options for combobox
   const connectorOptions = useMemo(() => {
@@ -501,12 +535,25 @@ export default function AMMPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => {
+                      onClick={async () => {
                         setLoadingPools(true);
-                        gatewayAMM.getPools(selectedConnector, selectedNetwork)
-                          .then(res => setPools(res.pools || []))
-                          .catch(() => setPools([]))
-                          .finally(() => setLoadingPools(false));
+                        try {
+                          const networkParts = selectedNetwork.split('-');
+                          const network = networkParts.slice(1).join('-') || networkParts[0];
+                          const poolTemplates = await gatewayClient.pools.list(selectedConnector, network);
+                          setPools(poolTemplates.map(p => ({
+                            address: p.address,
+                            connector: p.connector || selectedConnector,
+                            network: p.network,
+                            base_token: p.baseSymbol,
+                            quote_token: p.quoteSymbol,
+                            fee_tier: p.feePct,
+                          })));
+                        } catch {
+                          setPools([]);
+                        } finally {
+                          setLoadingPools(false);
+                        }
                       }}
                       disabled={loadingPools}
                     >

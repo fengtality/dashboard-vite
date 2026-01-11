@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { controllers, scripts } from '@/api/client';
-import type { ControllerConfig, ScriptConfig } from '@/api/client';
+import { controllers, scripts } from '@/api/hummingbot-api';
+import type { ControllerConfig, ScriptConfig } from '@/api/hummingbot-api';
 import {
   Loader2,
   Zap,

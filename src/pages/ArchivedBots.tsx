@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { archivedBots } from '../api/client';
-import type { ArchivedBot, PerformanceData } from '../api/client';
+import { archivedBots } from '../api/hummingbot-api';
+import type { ArchivedBot, PerformanceData } from '../api/hummingbot-api';
 import {
   Loader2,
   Archive,

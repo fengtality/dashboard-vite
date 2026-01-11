@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { scripts } from '../api/client';
-import type { ScriptConfig } from '../api/client';
+import { scripts } from '../api/hummingbot-api';
+import type { ScriptConfig } from '../api/hummingbot-api';
 import { Loader2, Plus, Trash2, FileCode } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';

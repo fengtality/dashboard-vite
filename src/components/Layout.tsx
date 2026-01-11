@@ -12,7 +12,7 @@ import {
   Menu,
   Droplets,
 } from 'lucide-react';
-import { gateway } from '@/api/client';
+import { gatewayClient } from '@/api/gateway';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/theme-provider';
 import { Button } from '@/components/ui/button';
@@ -69,12 +69,12 @@ export default function Layout() {
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
-  // Check Gateway status periodically
+  // Check Gateway status periodically via direct health check
   useEffect(() => {
     async function checkGateway() {
       try {
-        const status = await gateway.getStatus();
-        setGatewayRunning(status.running === true || status.status === 'running');
+        const response = await gatewayClient.health();
+        setGatewayRunning(response.status === 'ok');
       } catch {
         setGatewayRunning(false);
       }

@@ -3,6 +3,7 @@ import { AccountProvider } from './components/account-provider';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import TradePage from './pages/TradePage';
+import AMMPage from './pages/AMMPage';
 import ManageKeys from './pages/ManageKeys';
 import CreateConfig from './pages/CreateConfig';
 import GridStrikeConfig from './pages/GridStrikeConfig';
@@ -23,6 +24,7 @@ function App() {
             {/* Trade */}
             <Route path="trade/spot" element={<TradePage type="spot" />} />
             <Route path="trade/perp" element={<TradePage type="perp" />} />
+            <Route path="trade/amm" element={<AMMPage />} />
             {/* Keys */}
             <Route path="keys" element={<ManageKeys />} />
             {/* Strategies */}

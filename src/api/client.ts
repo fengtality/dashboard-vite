@@ -683,6 +683,260 @@ export const marketData = {
     }),
 };
 
+// Gateway Router - Server Management
+export interface GatewayStatus {
+  status: string;
+  gateway_version?: string;
+  [key: string]: unknown;
+}
+
+export interface GatewayStartConfig {
+  image?: string;
+  port?: number;
+  passphrase?: string;
+  dev_mode?: boolean;
+}
+
+export interface GatewayNetwork {
+  network_id: string;
+  chain: string;
+  network: string;
+  nodeURL?: string;
+  tokenSymbol?: string;
+  nativeCurrencySymbol?: string;
+  [key: string]: unknown;
+}
+
+export interface GatewayConnector {
+  name: string;
+  trading_types: string[];
+  chain: string;
+  networks: string[];
+  [key: string]: unknown;
+}
+
+export interface GatewayWallet {
+  chain: string;
+  walletAddresses: string[];
+}
+
+export const gateway = {
+  // Server management
+  getStatus: () => request<GatewayStatus>('/gateway/status'),
+  start: (config?: GatewayStartConfig) =>
+    request<unknown>('/gateway/start', {
+      method: 'POST',
+      body: JSON.stringify(config || {}),
+    }),
+  stop: () => request<unknown>('/gateway/stop', { method: 'POST' }),
+  restart: () => request<unknown>('/gateway/restart', { method: 'POST' }),
+  getLogs: (tail?: number) =>
+    request<{ logs: string[] }>(`/gateway/logs${tail ? `?tail=${tail}` : ''}`),
+
+  // Network configuration
+  listNetworks: () => request<{ networks: GatewayNetwork[] }>('/gateway/networks'),
+  getNetworkConfig: (networkId: string) =>
+    request<Record<string, unknown>>(`/gateway/networks/${networkId}/config`),
+  updateNetworkConfig: (networkId: string, config: Record<string, unknown>) =>
+    request<unknown>(`/gateway/networks/${networkId}/config`, {
+      method: 'POST',
+      body: JSON.stringify(config),
+    }),
+  getNetworkTokens: (networkId: string) =>
+    request<{ tokens: Array<{ address: string; symbol: string; decimals: number; name?: string }> }>(
+      `/gateway/networks/${networkId}/tokens`
+    ),
+
+  // Connector configuration
+  listConnectors: () => request<{ connectors: GatewayConnector[] }>('/gateway/connectors'),
+  getConnectorConfig: (connectorName: string) =>
+    request<Record<string, unknown>>(`/gateway/connectors/${connectorName}/config`),
+  updateConnectorConfig: (connectorName: string, config: Record<string, unknown>) =>
+    request<unknown>(`/gateway/connectors/${connectorName}/config`, {
+      method: 'POST',
+      body: JSON.stringify(config),
+    }),
+
+  // Wallet management
+  listWallets: () => request<GatewayWallet[]>('/gateway/wallets'),
+  createWallet: (chain: string) =>
+    request<{ address: string }>('/gateway/wallets', {
+      method: 'POST',
+      body: JSON.stringify({ chain }),
+    }),
+};
+
+// Gateway Swap Router
+export interface SwapQuoteRequest {
+  connector: string;
+  network: string;
+  trading_pair: string;
+  side: 'BUY' | 'SELL';
+  amount: number;
+  slippage_pct?: number;
+}
+
+export interface SwapQuote {
+  price: number;
+  amount_in: number;
+  amount_out: number;
+  gas_estimate?: number;
+  [key: string]: unknown;
+}
+
+export interface SwapExecuteRequest extends SwapQuoteRequest {}
+
+export interface SwapResult {
+  tx_hash: string;
+  status: string;
+  [key: string]: unknown;
+}
+
+export interface SwapSearchRequest {
+  limit?: number;
+  offset?: number;
+  trading_pair?: string;
+  connector?: string;
+  network?: string;
+  status?: string;
+}
+
+export const gatewaySwap = {
+  getQuote: (req: SwapQuoteRequest) =>
+    request<SwapQuote>('/gateway/swap/quote', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }),
+  execute: (req: SwapExecuteRequest) =>
+    request<SwapResult>('/gateway/swap/execute', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }),
+  getStatus: (txHash: string) =>
+    request<SwapResult>(`/gateway/swap/status/${txHash}`),
+  search: (req: SwapSearchRequest = {}) =>
+    request<PaginatedResponse>('/gateway/swap/search', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }),
+};
+
+// Gateway CLMM Router (LP Positions)
+export interface CLMMPosition {
+  position_id: string;
+  connector: string;
+  network: string;
+  pool_address: string;
+  base_token: string;
+  quote_token: string;
+  lower_price: number;
+  upper_price: number;
+  current_price: number;
+  liquidity: number;
+  base_token_amount: number;
+  quote_token_amount: number;
+  in_range: 'IN_RANGE' | 'OUT_OF_RANGE';
+  base_fee_pending: number;
+  quote_fee_pending: number;
+  base_fee_collected: number;
+  quote_fee_collected: number;
+  pnl_summary?: {
+    total_pnl_quote: number;
+    current_lp_value_quote: number;
+    total_fees_value_quote: number;
+    [key: string]: unknown;
+  };
+  status: 'OPEN' | 'CLOSED';
+  opened_at: string;
+  closed_at?: string;
+  [key: string]: unknown;
+}
+
+export interface CLMMSearchRequest {
+  limit?: number;
+  offset?: number;
+  status?: 'OPEN' | 'CLOSED';
+  connector?: string;
+  network?: string;
+  refresh?: boolean;
+}
+
+export interface AddLiquidityRequest {
+  connector: string;
+  network: string;
+  pool_address: string;
+  base_token_amount?: number;
+  quote_token_amount?: number;
+  lower_price: number;
+  upper_price: number;
+  slippage_pct?: number;
+}
+
+export interface RemoveLiquidityRequest {
+  connector: string;
+  network: string;
+  position_id: string;
+  decrease_percent?: number;
+  slippage_pct?: number;
+}
+
+export interface CollectFeesRequest {
+  connector: string;
+  network: string;
+  position_id: string;
+}
+
+export const gatewayCLMM = {
+  searchPositions: (req: CLMMSearchRequest = {}) =>
+    request<PaginatedResponse<CLMMPosition>>('/gateway/clmm/positions/search', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }),
+  getPosition: (positionId: string) =>
+    request<CLMMPosition>(`/gateway/clmm/positions/${positionId}`),
+  addLiquidity: (req: AddLiquidityRequest) =>
+    request<{ tx_hash: string; position_id?: string }>('/gateway/clmm/add-liquidity', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }),
+  removeLiquidity: (req: RemoveLiquidityRequest) =>
+    request<{ tx_hash: string }>('/gateway/clmm/remove-liquidity', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }),
+  collectFees: (req: CollectFeesRequest) =>
+    request<{ tx_hash: string }>('/gateway/clmm/collect-fees', {
+      method: 'POST',
+      body: JSON.stringify(req),
+    }),
+};
+
+// Gateway AMM Router (for pool discovery)
+export interface PoolInfo {
+  address: string;
+  connector: string;
+  network: string;
+  base_token: string;
+  quote_token: string;
+  fee_tier?: number;
+  liquidity?: number;
+  volume_24h?: number;
+  [key: string]: unknown;
+}
+
+export const gatewayAMM = {
+  getPools: (connector: string, network: string, tradingPair?: string) => {
+    const params = new URLSearchParams({ connector, network });
+    if (tradingPair) params.append('trading_pair', tradingPair);
+    return request<{ pools: PoolInfo[] }>(`/gateway/amm/pools?${params}`);
+  },
+  getPoolInfo: (connector: string, network: string, poolAddress: string) =>
+    request<PoolInfo>(`/gateway/amm/pool-info`, {
+      method: 'POST',
+      body: JSON.stringify({ connector, network, pool_address: poolAddress }),
+    }),
+};
+
 export const api = {
   connectors,
   accounts,
@@ -694,6 +948,10 @@ export const api = {
   portfolio,
   trading,
   marketData,
+  gateway,
+  gatewaySwap,
+  gatewayCLMM,
+  gatewayAMM,
 };
 
 export default api;

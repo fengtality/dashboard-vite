@@ -10,6 +10,7 @@ import {
   Moon,
   Settings,
   Menu,
+  Droplets,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/theme-provider';
@@ -89,6 +90,11 @@ export default function Layout() {
               Perp Markets
             </NavLink>
 
+            <NavLink to="/trade/amm" isActive={location.pathname === '/trade/amm'}>
+              <Droplets size={16} className="mr-2" />
+              AMM Markets
+            </NavLink>
+
             <NavLink to="/bots" isActive={location.pathname.startsWith('/bots')}>
               <Bot size={16} className="mr-2" />
               Bots
@@ -137,6 +143,11 @@ export default function Layout() {
                   <MobileNavLink to="/trade/perp" isActive={location.pathname === '/trade/perp'} onClick={closeMobileMenu}>
                     <Zap size={20} />
                     Perp Markets
+                  </MobileNavLink>
+
+                  <MobileNavLink to="/trade/amm" isActive={location.pathname === '/trade/amm'} onClick={closeMobileMenu}>
+                    <Droplets size={20} />
+                    AMM Markets
                   </MobileNavLink>
 
                   <MobileNavLink to="/bots" isActive={location.pathname.startsWith('/bots')} onClick={closeMobileMenu}>

@@ -143,7 +143,7 @@ export default function BotDetail() {
               <ArrowLeft size={18} />
             </Button>
           </Link>
-          <Bot size={24} className={isRunning ? 'text-green-500' : 'text-muted-foreground'} />
+          <Bot size={24} className={isRunning ? 'text-success' : 'text-muted-foreground'} />
           <h1 className="text-2xl font-bold text-foreground">{displayName}</h1>
           <Badge variant={isRunning ? 'default' : 'secondary'}>
             <span className="flex items-center gap-1">
@@ -184,7 +184,7 @@ export default function BotDetail() {
             {!isRunning && (
               <Button
                 onClick={handleStart}
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-success hover:bg-success/90"
               >
                 <Play className="mr-2" size={16} />
                 Start Bot
@@ -194,7 +194,7 @@ export default function BotDetail() {
               <Button
                 variant="outline"
                 onClick={handleStop}
-                className="text-yellow-600 hover:text-yellow-700 hover:bg-yellow-500/10"
+                className="text-warning hover:text-warning/80 hover:bg-warning/10"
               >
                 <Square className="mr-2" size={16} />
                 Stop Bot
@@ -222,7 +222,7 @@ export default function BotDetail() {
               <Activity size={16} />
               <span className="text-sm">Status</span>
             </div>
-            <p className={`text-2xl font-bold capitalize ${isRunning ? 'text-green-500' : ''}`}>
+            <p className={`text-2xl font-bold capitalize ${isRunning ? 'text-success' : ''}`}>
               {botStatus?.status || 'Unknown'}
             </p>
           </CardContent>

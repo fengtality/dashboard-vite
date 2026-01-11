@@ -294,7 +294,7 @@ export default function ManageKeys() {
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <Key className="text-green-500" size={18} />
+                      <Key className="text-success" size={18} />
                       <span className="text-foreground">{cred}</span>
                     </div>
                     <div className="flex items-center gap-2">

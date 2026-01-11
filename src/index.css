@@ -23,6 +23,16 @@
   --ring: 183 100% 37%;
   --radius: 0.5rem;
 
+  /* Semantic colors - for consistent theming */
+  --positive: 142 71% 45%;           /* Green - for success, buy, bullish */
+  --positive-foreground: 0 0% 100%;
+  --negative: 0 84% 60%;             /* Red - for error, sell, bearish */
+  --negative-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;             /* Amber/Yellow - for warnings */
+  --warning-foreground: 0 0% 100%;
+  --success: 142 71% 45%;            /* Same as positive */
+  --success-foreground: 0 0% 100%;
+
   /* Sidebar specific */
   --sidebar-background: 0 0% 98%;
   --sidebar-foreground: 240 5.3% 26.1%;
@@ -56,6 +66,16 @@
   --input: 240 4% 26%;
   --ring: 165 100% 69%;
 
+  /* Semantic colors - dark mode adjustments */
+  --positive: 142 71% 45%;           /* Keep same green, good contrast */
+  --positive-foreground: 0 0% 100%;
+  --negative: 0 84% 60%;             /* Keep same red, good contrast */
+  --negative-foreground: 0 0% 100%;
+  --warning: 38 92% 50%;             /* Keep same amber */
+  --warning-foreground: 0 0% 100%;
+  --success: 142 71% 45%;
+  --success-foreground: 0 0% 100%;
+
   /* Sidebar specific - dark */
   --sidebar-background: 240 5.9% 10%;
   --sidebar-foreground: 240 4.8% 95.9%;
@@ -88,6 +108,16 @@
   --color-border: hsl(var(--border));
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
+
+  /* Semantic colors for theming */
+  --color-positive: hsl(var(--positive));
+  --color-positive-foreground: hsl(var(--positive-foreground));
+  --color-negative: hsl(var(--negative));
+  --color-negative-foreground: hsl(var(--negative-foreground));
+  --color-warning: hsl(var(--warning));
+  --color-warning-foreground: hsl(var(--warning-foreground));
+  --color-success: hsl(var(--success));
+  --color-success-foreground: hsl(var(--success-foreground));
 
   --color-sidebar-background: hsl(var(--sidebar-background));
   --color-sidebar-foreground: hsl(var(--sidebar-foreground));

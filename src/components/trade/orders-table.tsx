@@ -60,7 +60,7 @@ export function OrdersTable({ orders, cancellingOrderId, onCancelOrder, selected
                 <td className="py-2 px-3 text-muted-foreground whitespace-nowrap">{timeStr}</td>
                 <td className="py-2 px-3">{orderType.charAt(0) + orderType.slice(1).toLowerCase()}</td>
                 <td className="py-2 px-3 font-semibold">{pair}</td>
-                <td className={`py-2 px-3 ${isLong ? 'text-green-500' : 'text-red-500'}`}>
+                <td className={`py-2 px-3 ${isLong ? 'text-positive' : 'text-negative'}`}>
                   {isLong ? 'Long' : 'Short'}
                 </td>
                 <td className="py-2 px-3 text-right font-mono">{filledAmount.toFixed(2)}</td>
@@ -71,7 +71,7 @@ export function OrdersTable({ orders, cancellingOrderId, onCancelOrder, selected
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 px-2 text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                    className="h-7 px-2 text-destructive hover:text-destructive/80 hover:bg-destructive/10"
                     onClick={() => onCancelOrder(orderId, connectorName)}
                     disabled={cancellingOrderId === orderId}
                   >

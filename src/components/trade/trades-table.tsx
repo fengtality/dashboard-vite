@@ -36,7 +36,7 @@ export function TradesTable({ trades }: TradesTableProps) {
                 </td>
                 <td className="py-2 px-3 font-medium text-foreground">{String(trade.trading_pair || trade.symbol || '-')}</td>
                 <td className="py-2 px-3">
-                  <Badge variant={isBuy ? 'default' : 'secondary'} className={isBuy ? 'bg-green-500' : 'bg-red-500'}>
+                  <Badge variant={isBuy ? 'default' : 'secondary'} className={isBuy ? 'bg-positive' : 'bg-negative'}>
                     {tradeType}
                   </Badge>
                 </td>

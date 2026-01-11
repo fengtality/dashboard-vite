@@ -89,7 +89,7 @@ export default function Home() {
               <div className="mt-3 flex flex-wrap gap-1">
                 {runningBots.slice(0, 3).map(([name]) => (
                   <Badge key={name} variant="secondary" className="text-xs">
-                    <Square size={8} fill="currentColor" className="text-green-500 mr-1" />
+                    <Square size={8} fill="currentColor" className="text-success mr-1" />
                     {formatBotName(name)}
                   </Badge>
                 ))}

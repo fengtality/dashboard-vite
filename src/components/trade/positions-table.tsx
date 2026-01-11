@@ -43,7 +43,7 @@ export function PositionsTable({ positions, markPrice, currentPrice }: Positions
               <tr key={i} className="border-b border-border hover:bg-muted/30">
                 <td className="py-2 px-3">
                   <div className="flex items-center gap-2">
-                    <span className={`w-1 h-6 rounded ${isLong ? 'bg-green-500' : 'bg-red-500'}`} />
+                    <span className={`w-1 h-6 rounded ${isLong ? 'bg-positive' : 'bg-negative'}`} />
                     <span className="font-semibold">{baseSymbol}</span>
                     <span className="text-muted-foreground text-xs">{posLeverage}x</span>
                   </div>
@@ -60,7 +60,7 @@ export function PositionsTable({ positions, markPrice, currentPrice }: Positions
                 <td className="py-2 px-3 text-right font-mono">
                   {displayMarkPrice.toFixed(2)}
                 </td>
-                <td className={`py-2 px-3 text-right font-mono ${pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                <td className={`py-2 px-3 text-right font-mono ${pnl >= 0 ? 'text-positive' : 'text-negative'}`}>
                   {pnl >= 0 ? '+' : ''}{pnl.toFixed(2)} ({roe >= 0 ? '+' : ''}{roe.toFixed(1)}%)
                 </td>
               </tr>

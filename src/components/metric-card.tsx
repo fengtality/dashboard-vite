@@ -45,9 +45,9 @@ export function MetricCard({
         {showTrendIcon && (
           <>
             {isPositive ? (
-              <TrendingUp className="text-green-500" size={16} />
+              <TrendingUp className="text-positive" size={16} />
             ) : (
-              <TrendingDown className="text-red-500" size={16} />
+              <TrendingDown className="text-negative" size={16} />
             )}
           </>
         )}
@@ -55,8 +55,8 @@ export function MetricCard({
           className={`text-lg font-semibold ${
             showTrendIcon
               ? isPositive
-                ? 'text-green-500'
-                : 'text-red-500'
+                ? 'text-positive'
+                : 'text-negative'
               : 'text-foreground'
           }`}
         >

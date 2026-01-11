@@ -60,9 +60,9 @@ export function TripleBarrierVisualization({
         {/* Take Profit */}
         {hasTP && (
           <>
-            <div className="absolute text-sm font-semibold text-green-500" style={{ top: `${tpPct}%`, left: 0, transform: 'translateY(-50%)' }}>Take Profit</div>
-            <div className="absolute h-0.5 bg-green-500" style={{ top: `${tpPct}%`, left: '110px', width: `calc(${lineEndPct}% - 110px)` }} />
-            <div className="absolute text-sm font-semibold text-green-500 whitespace-nowrap" style={{ top: `${tpPct}%`, left: `calc(${lineEndPct}% + 8px)`, transform: 'translateY(-50%)' }}>+{(tp * 100).toFixed(2)}%</div>
+            <div className="absolute text-sm font-semibold text-positive" style={{ top: `${tpPct}%`, left: 0, transform: 'translateY(-50%)' }}>Take Profit</div>
+            <div className="absolute h-0.5 bg-positive" style={{ top: `${tpPct}%`, left: '110px', width: `calc(${lineEndPct}% - 110px)` }} />
+            <div className="absolute text-sm font-semibold text-positive whitespace-nowrap" style={{ top: `${tpPct}%`, left: `calc(${lineEndPct}% + 8px)`, transform: 'translateY(-50%)' }}>+{(tp * 100).toFixed(2)}%</div>
           </>
         )}
 
@@ -73,27 +73,27 @@ export function TripleBarrierVisualization({
         {/* Trailing Stop */}
         {hasTS && (
           <>
-            <div className="absolute text-sm font-semibold text-violet-500" style={{ top: `${tsPct}%`, left: 0, transform: 'translateY(-50%)' }}>Trailing Stop</div>
-            <div className="absolute h-0.5 border-t-2 border-dashed border-violet-500" style={{ top: `${tsPct}%`, left: '110px', width: `calc(${lineEndPct}% - 110px)` }} />
-            <div className="absolute text-sm font-semibold text-violet-500 whitespace-nowrap" style={{ top: `${tsPct}%`, left: `calc(${lineEndPct}% + 8px)`, transform: 'translateY(-50%)' }}>-{(ts * 100).toFixed(2)}%</div>
+            <div className="absolute text-sm font-semibold text-primary" style={{ top: `${tsPct}%`, left: 0, transform: 'translateY(-50%)' }}>Trailing Stop</div>
+            <div className="absolute h-0.5 border-t-2 border-dashed border-primary" style={{ top: `${tsPct}%`, left: '110px', width: `calc(${lineEndPct}% - 110px)` }} />
+            <div className="absolute text-sm font-semibold text-primary whitespace-nowrap" style={{ top: `${tsPct}%`, left: `calc(${lineEndPct}% + 8px)`, transform: 'translateY(-50%)' }}>-{(ts * 100).toFixed(2)}%</div>
           </>
         )}
 
         {/* Stop Loss */}
         {hasSL && (
           <>
-            <div className="absolute text-sm font-semibold text-red-500" style={{ top: `${slPct}%`, left: 0, transform: 'translateY(-50%)' }}>Stop Loss</div>
-            <div className="absolute h-0.5 bg-red-500" style={{ top: `${slPct}%`, left: '110px', width: `calc(${lineEndPct}% - 110px)` }} />
-            <div className="absolute text-sm font-semibold text-red-500 whitespace-nowrap" style={{ top: `${slPct}%`, left: `calc(${lineEndPct}% + 8px)`, transform: 'translateY(-50%)' }}>-{(sl * 100).toFixed(2)}%</div>
+            <div className="absolute text-sm font-semibold text-negative" style={{ top: `${slPct}%`, left: 0, transform: 'translateY(-50%)' }}>Stop Loss</div>
+            <div className="absolute h-0.5 bg-negative" style={{ top: `${slPct}%`, left: '110px', width: `calc(${lineEndPct}% - 110px)` }} />
+            <div className="absolute text-sm font-semibold text-negative whitespace-nowrap" style={{ top: `${slPct}%`, left: `calc(${lineEndPct}% + 8px)`, transform: 'translateY(-50%)' }}>-{(sl * 100).toFixed(2)}%</div>
           </>
         )}
 
         {/* Time Limit vertical line (right edge of box) */}
         {hasTimeLimit && (
           <>
-            <div className="absolute text-sm font-semibold text-amber-500 whitespace-nowrap" style={{ top: '2%', left: `calc(${lineEndPct}% - 30px)` }}>Time Limit</div>
-            <div className="absolute w-0.5 border-l-2 border-dashed border-amber-500" style={{ top: `${hasTP ? tpPct : entryPct}%`, bottom: `${100 - (hasSL ? slPct : (hasTS ? tsPct : entryPct))}%`, left: `calc(${lineEndPct}%)` }} />
-            <div className="absolute text-sm font-semibold text-amber-500 whitespace-nowrap" style={{ top: `${(hasSL ? slPct : (hasTS ? tsPct : entryPct)) + 3}%`, left: `calc(${lineEndPct}% - 15px)` }}>{timeLimit}s</div>
+            <div className="absolute text-sm font-semibold text-warning whitespace-nowrap" style={{ top: '2%', left: `calc(${lineEndPct}% - 30px)` }}>Time Limit</div>
+            <div className="absolute w-0.5 border-l-2 border-dashed border-warning" style={{ top: `${hasTP ? tpPct : entryPct}%`, bottom: `${100 - (hasSL ? slPct : (hasTS ? tsPct : entryPct))}%`, left: `calc(${lineEndPct}%)` }} />
+            <div className="absolute text-sm font-semibold text-warning whitespace-nowrap" style={{ top: `${(hasSL ? slPct : (hasTS ? tsPct : entryPct)) + 3}%`, left: `calc(${lineEndPct}% - 15px)` }}>{timeLimit}s</div>
           </>
         )}
 

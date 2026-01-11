@@ -265,7 +265,7 @@ export default function AccountPage() {
               <div>
                 <span className="text-muted-foreground">Status</span>
                 <p className="flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-green-500" />
+                  <span className="h-2 w-2 rounded-full bg-success" />
                   Connected
                 </p>
               </div>

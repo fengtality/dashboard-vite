@@ -359,7 +359,7 @@ function BotCard({
       <CardContent className="p-4">
         <div className="flex items-center justify-between">
           <Link to={`/bots/${botName}`} className="flex items-center gap-3 hover:opacity-80">
-            <Bot className={isRunning ? 'text-green-500' : 'text-muted-foreground'} size={24} />
+            <Bot className={isRunning ? 'text-success' : 'text-muted-foreground'} size={24} />
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-medium text-foreground">{formatBotName(botName)}</span>

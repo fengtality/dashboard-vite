@@ -919,7 +919,7 @@ export default function TradePage({ type }: TradePageProps) {
                     >
                       <Star
                         size={20}
-                        className={isFavorite(selectedConnector, selectedPair) ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground hover:text-yellow-400'}
+                        className={isFavorite(selectedConnector, selectedPair) ? 'fill-warning text-warning' : 'text-muted-foreground hover:text-warning'}
                       />
                     </button>
                     <span className="text-xl font-semibold">{selectedPair}</span>
@@ -982,7 +982,7 @@ export default function TradePage({ type }: TradePageProps) {
                           </div>
                           <div className="flex flex-col">
                             <span className="text-muted-foreground text-xs">Funding</span>
-                            <span className={`font-mono ${(fundingInfo.funding_rate ?? 0) >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                            <span className={`font-mono ${(fundingInfo.funding_rate ?? 0) >= 0 ? 'text-positive' : 'text-negative'}`}>
                               {((fundingInfo.funding_rate ?? 0) * 100).toFixed(4)}%
                             </span>
                           </div>
@@ -1138,11 +1138,11 @@ export default function TradePage({ type }: TradePageProps) {
                                 {/* Summary */}
                                 <div className="text-xs text-muted-foreground mb-2">
                                   <span>Depth (±{chartRange.toFixed(1)} bps) | </span>
-                                  <span className="text-green-500">Bids: {depthTotalBids.toFixed(2)}</span>
+                                  <span className="text-positive">Bids: {depthTotalBids.toFixed(2)}</span>
                                   <span> | </span>
-                                  <span className="text-red-500">Asks: {depthTotalAsks.toFixed(2)}</span>
+                                  <span className="text-negative">Asks: {depthTotalAsks.toFixed(2)}</span>
                                   <span> | </span>
-                                  <span className={imbalance >= 0 ? 'text-green-500' : 'text-red-500'}>
+                                  <span className={imbalance >= 0 ? 'text-positive' : 'text-negative'}>
                                     {imbalance >= 0 ? '+' : ''}{imbalance.toFixed(1)}%
                                   </span>
                                 </div>
@@ -1164,7 +1164,7 @@ export default function TradePage({ type }: TradePageProps) {
                                       return (
                                         <div
                                           key={`bid-${i}`}
-                                          className="flex-1 bg-green-500/70 transition-all"
+                                          className="flex-1 bg-positive/70 transition-all"
                                           style={{ height: `${Math.max(height, 2)}%` }}
                                           title={`${d.bps.toFixed(2)} bps ($${d.price.toFixed(2)}): ${displayQty.toFixed(4)}${orderBookCumulative ? ' (cum)' : ''}`}
                                         />
@@ -1179,7 +1179,7 @@ export default function TradePage({ type }: TradePageProps) {
                                       return (
                                         <div
                                           key={`ask-${i}`}
-                                          className="flex-1 bg-red-500/70 transition-all"
+                                          className="flex-1 bg-negative/70 transition-all"
                                           style={{ height: `${Math.max(height, 2)}%` }}
                                           title={`+${d.bps.toFixed(2)} bps ($${d.price.toFixed(2)}): ${displayQty.toFixed(4)}${orderBookCumulative ? ' (cum)' : ''}`}
                                         />
@@ -1196,7 +1196,7 @@ export default function TradePage({ type }: TradePageProps) {
                                   <div className="flex-1 flex justify-between">
                                     <div className="text-left">
                                       <div>-{chartRange.toFixed(1)} bps</div>
-                                      <div className="text-green-500">{(midPrice * (1 - chartRange / 10000)).toFixed(priceDecimals)}</div>
+                                      <div className="text-positive">{(midPrice * (1 - chartRange / 10000)).toFixed(priceDecimals)}</div>
                                     </div>
                                     <div className="text-center">
                                       <div>0</div>
@@ -1204,7 +1204,7 @@ export default function TradePage({ type }: TradePageProps) {
                                     </div>
                                     <div className="text-right">
                                       <div>+{chartRange.toFixed(1)} bps</div>
-                                      <div className="text-red-500">{(midPrice * (1 + chartRange / 10000)).toFixed(priceDecimals)}</div>
+                                      <div className="text-negative">{(midPrice * (1 + chartRange / 10000)).toFixed(priceDecimals)}</div>
                                     </div>
                                   </div>
                                 </div>
@@ -1221,8 +1221,8 @@ export default function TradePage({ type }: TradePageProps) {
                                       className={`px-2 py-1 flex items-center gap-0.5 ${orderBookTableView === 'both' ? 'bg-accent' : 'hover:bg-muted'}`}
                                       title="Show both"
                                     >
-                                      <div className="w-1.5 h-3 bg-red-500 rounded-sm" />
-                                      <div className="w-1.5 h-3 bg-green-500 rounded-sm" />
+                                      <div className="w-1.5 h-3 bg-negative rounded-sm" />
+                                      <div className="w-1.5 h-3 bg-positive rounded-sm" />
                                     </button>
                                     <button
                                       onClick={() => setOrderBookTableView('bids')}
@@ -1230,14 +1230,14 @@ export default function TradePage({ type }: TradePageProps) {
                                       title="Bids only"
                                     >
                                       <div className="w-1.5 h-3 bg-muted rounded-sm" />
-                                      <div className="w-1.5 h-3 bg-green-500 rounded-sm" />
+                                      <div className="w-1.5 h-3 bg-positive rounded-sm" />
                                     </button>
                                     <button
                                       onClick={() => setOrderBookTableView('asks')}
                                       className={`px-2 py-1 flex items-center gap-0.5 border-l border-border ${orderBookTableView === 'asks' ? 'bg-accent' : 'hover:bg-muted'}`}
                                       title="Asks only"
                                     >
-                                      <div className="w-1.5 h-3 bg-red-500 rounded-sm" />
+                                      <div className="w-1.5 h-3 bg-negative rounded-sm" />
                                       <div className="w-1.5 h-3 bg-muted rounded-sm" />
                                     </button>
                                   </div>
@@ -1255,7 +1255,7 @@ export default function TradePage({ type }: TradePageProps) {
                                     <div className="flex-1 flex flex-col justify-end">
                                       {[...parsedAsks].slice(0, 15).reverse().map((a, i) => (
                                         <div key={i} className="grid grid-cols-2 py-0.5">
-                                          <span className="text-red-500">{a.price.toFixed(priceDecimals)}</span>
+                                          <span className="text-negative">{a.price.toFixed(priceDecimals)}</span>
                                           <span className="text-right">{a.qty.toFixed(4)}</span>
                                         </div>
                                       ))}
@@ -1271,7 +1271,7 @@ export default function TradePage({ type }: TradePageProps) {
                                     <div className="flex-1">
                                       {parsedBids.slice(0, 15).map((b, i) => (
                                         <div key={i} className="grid grid-cols-2 py-0.5">
-                                          <span className="text-green-500">{b.price.toFixed(priceDecimals)}</span>
+                                          <span className="text-positive">{b.price.toFixed(priceDecimals)}</span>
                                           <span className="text-right">{b.qty.toFixed(4)}</span>
                                         </div>
                                       ))}
@@ -1283,14 +1283,14 @@ export default function TradePage({ type }: TradePageProps) {
                                     <div className="flex-1 overflow-auto">
                                       {parsedBids.map((b, i) => (
                                         <div key={i} className="grid grid-cols-2 py-0.5">
-                                          <span className="text-green-500">{b.price.toFixed(priceDecimals)}</span>
+                                          <span className="text-positive">{b.price.toFixed(priceDecimals)}</span>
                                           <span className="text-right">{b.qty.toFixed(4)}</span>
                                         </div>
                                       ))}
                                     </div>
                                     {/* Total */}
                                     <div className="border-t border-border pt-1 mt-1 text-muted-foreground text-right">
-                                      <span className="text-green-500">Total: {totalBids.toFixed(2)}</span>
+                                      <span className="text-positive">Total: {totalBids.toFixed(2)}</span>
                                     </div>
                                   </>
                                 ) : (
@@ -1299,14 +1299,14 @@ export default function TradePage({ type }: TradePageProps) {
                                     <div className="flex-1 overflow-auto">
                                       {parsedAsks.map((a, i) => (
                                         <div key={i} className="grid grid-cols-2 py-0.5">
-                                          <span className="text-red-500">{a.price.toFixed(priceDecimals)}</span>
+                                          <span className="text-negative">{a.price.toFixed(priceDecimals)}</span>
                                           <span className="text-right">{a.qty.toFixed(4)}</span>
                                         </div>
                                       ))}
                                     </div>
                                     {/* Total */}
                                     <div className="border-t border-border pt-1 mt-1 text-muted-foreground text-right">
-                                      <span className="text-red-500">Total: {totalAsks.toFixed(2)}</span>
+                                      <span className="text-negative">Total: {totalAsks.toFixed(2)}</span>
                                     </div>
                                   </>
                                 )}
@@ -1500,7 +1500,7 @@ export default function TradePage({ type }: TradePageProps) {
                       <button
                         className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
                           tradeSide === 'BUY'
-                            ? 'bg-green-500 text-white'
+                            ? 'bg-positive text-positive-foreground'
                             : 'text-muted-foreground hover:text-foreground'
                         }`}
                         onClick={() => setTradeSide('BUY')}
@@ -1510,7 +1510,7 @@ export default function TradePage({ type }: TradePageProps) {
                       <button
                         className={`flex-1 py-2 text-sm font-medium rounded-md transition-colors ${
                           tradeSide === 'SELL'
-                            ? 'bg-red-500 text-white'
+                            ? 'bg-negative text-negative-foreground'
                             : 'text-muted-foreground hover:text-foreground'
                         }`}
                         onClick={() => setTradeSide('SELL')}
@@ -1676,8 +1676,8 @@ export default function TradePage({ type }: TradePageProps) {
                     <Button
                       className={`w-full ${
                         tradeSide === 'BUY'
-                          ? 'bg-green-500 hover:bg-green-600'
-                          : 'bg-red-500 hover:bg-red-600'
+                          ? 'bg-positive hover:bg-positive/90 text-positive-foreground'
+                          : 'bg-negative hover:bg-negative/90 text-negative-foreground'
                       }`}
                       disabled={!selectedPair || placingOrder || !tradeAmount}
                       onClick={() => handlePlaceOrder(tradeSide)}
@@ -1733,7 +1733,7 @@ export default function TradePage({ type }: TradePageProps) {
 
                     <div className="grid grid-cols-3 gap-2">
                       <div className="space-y-1">
-                        <Label className="text-xs text-green-500">Start</Label>
+                        <Label className="text-xs text-positive">Start</Label>
                         <Input
                           type="text"
                           value={gridStartPrice}
@@ -1753,7 +1753,7 @@ export default function TradePage({ type }: TradePageProps) {
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label className="text-xs text-red-500">Limit</Label>
+                        <Label className="text-xs text-negative">Limit</Label>
                         <Input
                           type="text"
                           value={gridLimitPrice}

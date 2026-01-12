@@ -45,23 +45,23 @@ The dashboard currently maintains **two separate API clients**:
 ┌─────────────┐     ┌─────────────────────┐     ┌─────────────┐
 │             │     │                     │     │             │
 │  Dashboard  │────▶│  Hummingbot API     │────▶│  Gateway    │
-│             │     │  localhost:8000     │     │  (internal) │
+│             │     │  localhost:8000     │     │  (middleware)│
 └─────────────┘     └─────────────────────┘     └─────────────┘
-                              │
-                              ▼
-                    ┌─────────────────────┐
-                    │  External Services  │
-                    │  - CoinGecko        │
-                    │  - Blockchain Nodes │
-                    └─────────────────────┘
+                              │                        │
+                              ▼                        ▼
+                    ┌─────────────────┐     ┌─────────────────┐
+                    │ External APIs   │     │ Blockchain      │
+                    │ - CoinGecko     │     │ - RPC Nodes     │
+                    │ - CEX APIs      │     │ - DEX APIs/SDKs │
+                    └─────────────────┘     └─────────────────┘
 ```
 
 **Benefits:**
 - Single API client in dashboard
 - Unified authentication
-- Consistent error handling
-- Simplified deployment
-- Clear separation of concerns
+- Gateway handles the complex parts: node connections, DEX SDK translations, wallet signing
+- API handles the simple parts: data persistence, user management, orchestration
+- Clear separation: API = application logic, Gateway = blockchain middleware
 
 ---
 

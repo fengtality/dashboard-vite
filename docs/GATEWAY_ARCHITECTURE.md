@@ -92,9 +92,11 @@ These capabilities exist in Gateway for Hummingbot Client, but Dashboard/API sho
 | Price Data | Internal pricing for trades | Rate Oracle with CoinGecko ([PR #106](https://github.com/hummingbot/hummingbot-api/pull/106)) |
 | Server Config | Logging, ports, infrastructure | API has its own config |
 
-> **Why CoinGecko?** CoinGecko is essential for **symbol-to-address resolution**. Users search by symbol (e.g., "SOL", "USDC"), but all API calls to Gateway use blockchain addresses. CoinGecko provides the lookup service to convert symbols to addresses, plus unified token metadata, logos, prices, and pool statistics.
+> **Why CoinGecko?** CoinGecko is essential for **symbol-to-address resolution**. Users search by symbol (e.g., "SOL", "USDC") or trading pair (e.g., "SOL/USDC"), but all API calls to Gateway use blockchain addresses. CoinGecko provides the lookup service to convert symbols to token addresses and pairs to pool addresses, plus unified token metadata, logos, prices, and pool statistics.
 
-> **Address-First Flow**: User searches "SOL" → CoinGecko returns address `So11111111111111111111111111111111111111112` → API calls Gateway with address → Gateway executes on-chain operation.
+> **Address-First Flow**:
+> - **Token**: User searches "SOL" → CoinGecko returns `So11111111111111111111111111111111111111112` → Gateway uses address
+> - **Pool**: User searches "SOL/USDC" → CoinGecko returns pool address → Gateway uses address for LP operations
 
 ### Summary: What to Use from Gateway vs CoinGecko
 

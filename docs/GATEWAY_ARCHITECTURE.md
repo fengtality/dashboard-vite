@@ -71,15 +71,15 @@ The dashboard currently maintains **two separate API clients**:
 
 ### What Gateway Should Do (Core Focus)
 
-| Capability | Description | Priority |
-|------------|-------------|----------|
-| **Address-First Schemas** | All operations keyed by blockchain address, not internal IDs | High |
-| **Blockchain Reads** | Read balances, positions, transactions via RPC nodes | High |
-| **Blockchain Writes** | Submit transactions to blockchains via nodes | High |
-| **DEX Translation** | Convert DEX APIs/SDKs/IDLs to standard REST endpoints | High |
-| **Wallet Management** | Store/manage private keys, support hardware wallets | High |
-| **Node Configuration** | Manage RPC endpoints, failover, rate limits | Medium |
-| **DEX Configuration** | Store DEX-specific settings (Jupiter API key, slippage) | Medium |
+| Capability | Description |
+|------------|-------------|
+| **Address-First Schemas** | All operations keyed by blockchain address, not internal IDs |
+| **Blockchain Reads** | Read balances, positions, transactions via RPC nodes |
+| **Blockchain Writes** | Submit transactions to blockchains via nodes |
+| **DEX Translation** | Convert DEX APIs/SDKs/IDLs to standard REST endpoints |
+| **Wallet Management** | Store/manage private keys, support hardware wallets |
+| **Node Configuration** | Manage RPC endpoints, failover, rate limits |
+| **DEX Configuration** | Store DEX-specific settings (Jupiter API key, slippage) |
 
 ### What Dashboard/API Should Implement Independently
 

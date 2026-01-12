@@ -79,13 +79,15 @@ The dashboard currently maintains **two separate API clients**:
 | **Node Configuration** | Manage RPC endpoints, failover, rate limits | Medium |
 | **DEX Configuration** | Store DEX-specific settings (Jupiter API key, slippage) | Medium |
 
-### What Gateway Should Keep (No New Development)
+### What Dashboard/API Should Implement Independently
 
-| Capability | Reason | Consumer |
-|------------|--------|----------|
-| Token Management | Existing token list functionality | Hummingbot Client |
-| Pool Management | Pool discovery for trading strategies | Hummingbot Client |
-| Server Configs | Logging, ports - not user-facing | Internal |
+These capabilities exist in Gateway for the Hummingbot Client, but Dashboard and API should implement their own versions rather than relying on Gateway endpoints:
+
+| Capability | Why Not Use Gateway | Implementation |
+|------------|---------------------|----------------|
+| Token Management | Gateway's token lists are for Hummingbot Client trading | API/Dashboard fetch from CoinGecko or maintain own token registry |
+| Pool Management | Gateway's pool discovery is for Hummingbot Client strategies | API/Dashboard query DEX APIs directly for pool display |
+| Server Configs | Gateway's logging/ports are internal infrastructure | API has its own config, Dashboard uses environment variables |
 
 ### What Gateway Should NOT Do (Remove/Migrate)
 

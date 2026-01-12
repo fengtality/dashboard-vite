@@ -83,24 +83,29 @@ The dashboard currently maintains **two separate API clients**:
 
 ### What Dashboard/API Should Implement Independently
 
-These capabilities exist in Gateway for the Hummingbot Client, but Dashboard and API should implement their own versions rather than relying on Gateway endpoints:
+These capabilities exist in Gateway for Hummingbot Client, but Dashboard/API should use **CoinGecko as a unified data provider**:
 
-| Capability | Why Not Use Gateway | Implementation |
-|------------|---------------------|----------------|
-| Token Management | Gateway's token lists are for Hummingbot Client trading | API/Dashboard fetch from CoinGecko or maintain own token registry |
-| Pool Management | Gateway's pool discovery is for Hummingbot Client strategies | API/Dashboard query DEX APIs directly for pool display |
-| Server Configs | Gateway's logging/ports are internal infrastructure | API has its own config, Dashboard uses environment variables |
+| Capability | Gateway (for Hummingbot Client) | API (for Dashboard) |
+|------------|--------------------------------|---------------------|
+| Token Data | `/tokens/*` - trading-focused lists | `/market-data/tokens` - CoinGecko registry |
+| Pool Data | `/pools/*` - strategy discovery | `/market-data/pools` - CoinGecko pool stats |
+| Price Data | Internal pricing for trades | `/market-data/prices` - CoinGecko prices |
+| Server Config | Logging, ports, infrastructure | API has its own config |
 
-### What Dashboard/API Should NOT Use from Gateway
+> **Why CoinGecko?** Dashboard needs consistent, display-friendly data across all chains and DEXes. CoinGecko provides unified token metadata, logos, prices, and pool statistics that Gateway's trading-focused endpoints don't offer.
 
-These capabilities exist in Gateway but Dashboard/API should implement independently:
+### Summary: What to Use from Gateway vs CoinGecko
 
-| Capability | Dashboard/API Implementation | Reason |
-|------------|------------------------------|--------|
-| CoinGecko Prices | API fetches from CoinGecko directly | Price data is app-level concern, not blockchain middleware |
-| Token Lists | API maintains own registry | Dashboard needs different token metadata than trading client |
-| Pool Discovery | API queries DEX APIs | Dashboard display needs differ from trading client needs |
-| Direct Gateway Access | API proxies all Gateway calls | Single entry point, unified auth |
+| Need | Source | Endpoint |
+|------|--------|----------|
+| Wallet operations | Gateway (proxy) | `/api/gateway/wallet/*` |
+| Chain balances | Gateway (proxy) | `/api/gateway/chain/*` |
+| DEX swaps | Gateway (proxy) | `/api/gateway/swap/*` |
+| CLMM positions | Gateway (proxy) | `/api/gateway/clmm/*` |
+| AMM operations | Gateway (proxy) | `/api/gateway/amm/*` |
+| Token prices | CoinGecko | `/api/market-data/prices` |
+| Token metadata | CoinGecko | `/api/market-data/tokens` |
+| Pool statistics | CoinGecko | `/api/market-data/pools` |
 
 ---
 
@@ -119,21 +124,21 @@ These capabilities exist in Gateway but Dashboard/API should implement independe
 │  ├── /trading/*         - CEX order management                 │
 │  ├── /portfolio/*       - Portfolio tracking                   │
 │  ├── /strategies/*      - Strategy configs                     │
-│  ├── /prices/*          - CoinGecko integration (NEW)          │
-│  ├── /tokens/*          - Token registry (NEW - not from GW)   │
-│  ├── /pools/*           - Pool discovery (NEW - not from GW)   │
+│  ├── /market-data/*     - CoinGecko: prices, tokens, pools     │
 │  └── /docker/*          - Container management                 │
 ├────────────────────────────────────────────────────────────────┤
-│  Proxied to Gateway (Blockchain Operations Only)               │
+│  Proxied to Gateway (Same Schema as Gateway)                   │
 │  ├── /gateway/wallets/* - Wallet CRUD & signing                │
-│  ├── /gateway/balances/*- On-chain balance queries             │
-│  ├── /gateway/swap/*    - DEX swap execution                   │
+│  ├── /gateway/chain/*   - Chain status & balances              │
+│  ├── /gateway/swap/*    - DEX swap quotes & execution          │
 │  ├── /gateway/clmm/*    - CLMM position management             │
 │  └── /gateway/amm/*     - AMM operations                       │
 └────────────────────────────────────────────────────────────────┘
 ```
 
-> **Note**: Token and pool endpoints are implemented directly in the API (via CoinGecko, DEX APIs) rather than proxied from Gateway. Gateway's token/pool endpoints exist for the Hummingbot Client but are not used by Dashboard/API.
+> **Market Data**: Prices, tokens, and pools are provided by CoinGecko as a unified data service—not from Gateway. Gateway's token/pool endpoints exist for Hummingbot Client trading but are not suitable for Dashboard display.
+
+> **Gateway Proxy**: API proxies Gateway endpoints with **matching request/response schemas**. See Gateway docs at `localhost:15888/docs` for the canonical schemas. API routes like `/gateway/clmm/*`, `/gateway/swap/*` should match Gateway's `/clmm/*`, `/swap/*` schemas exactly.
 
 ### Gateway (Blockchain Middleware)
 
@@ -262,29 +267,38 @@ const wallets = await api.gateway.wallets.list();
 const creds = await api.accounts.getCredentials(account);
 ```
 
-### Phase 3: CoinGecko Migration (Medium-term)
+### Phase 3: Market Data Service (Medium-term)
 
-Move CoinGecko integration from Gateway to API:
+Add CoinGecko as unified market data provider:
 
 ```python
-# backend-api/services/prices.py
-class PriceService:
-    async def get_prices(self, tokens: list[str]) -> dict:
-        """Fetch prices from CoinGecko"""
-        # Caching, rate limiting, fallbacks
-        return await coingecko_client.get_prices(tokens)
+# backend-api/services/market_data.py
+class MarketDataService:
+    """CoinGecko integration for prices, tokens, and pools"""
+
+    async def get_prices(self, token_ids: list[str]) -> dict:
+        """Fetch token prices"""
+        return await coingecko.get_prices(token_ids)
+
+    async def get_tokens(self, chain: str = None) -> list[Token]:
+        """Fetch token registry with metadata & logos"""
+        return await coingecko.get_tokens(chain)
+
+    async def get_pools(self, chain: str, dex: str = None) -> list[Pool]:
+        """Fetch pool statistics"""
+        return await coingecko.get_pools(chain, dex)
 ```
 
-### Phase 4: API Independence (Long-term)
+### Phase 4: Complete Migration (Long-term)
 
-Implement independent functionality in API (Gateway endpoints remain for Hummingbot Client):
+Finalize the architecture:
 
-- **Prices**: API fetches from CoinGecko directly (don't use Gateway `/price`)
-- **Tokens**: API maintains own token registry (don't use Gateway `/tokens`)
-- **Pools**: API queries DEX APIs directly for display (don't use Gateway `/pools`)
-- **Config**: API manages user-facing config in database (Gateway config is infrastructure-only)
+- **Gateway proxy**: All blockchain operations go through `/api/gateway/*` with matching schemas
+- **Market data**: All display data (prices, tokens, pools) comes from `/api/market-data/*` via CoinGecko
+- **Config**: User-facing config in API database; Gateway config is infrastructure-only
+- **Dashboard**: Single API client, no direct Gateway calls
 
-> **Note**: We don't remove these endpoints from Gateway—they're still used by Hummingbot Client. We just don't rely on them from Dashboard/API.
+> **Note**: Gateway endpoints remain for Hummingbot Client—we don't remove them. Dashboard/API just uses the appropriate source for each data type.
 
 ---
 
@@ -404,21 +418,25 @@ export const api = {
   trading: TradingAPI,
   portfolio: PortfolioAPI,
 
-  // Gateway operations (proxied - blockchain operations only)
+  // Gateway proxy (same schemas as Gateway - see localhost:15888/docs)
   gateway: {
-    wallets: WalletsAPI,    // /api/gateway/wallets - key management, signing
-    balances: BalancesAPI,  // /api/gateway/balances - on-chain queries
-    swap: SwapAPI,          // /api/gateway/swap - DEX execution
-    clmm: CLMMAPI,          // /api/gateway/clmm - position management
-    amm: AMMAPI,            // /api/gateway/amm - LP operations
+    wallets: WalletsAPI,    // /api/gateway/wallets → Gateway /wallet
+    chain: ChainAPI,        // /api/gateway/chain → Gateway /chain
+    swap: SwapAPI,          // /api/gateway/swap → Gateway /swap
+    clmm: CLMMAPI,          // /api/gateway/clmm → Gateway /clmm
+    amm: AMMAPI,            // /api/gateway/amm → Gateway /amm
   },
 
-  // New (implemented by API, NOT from Gateway)
-  prices: PricesAPI,        // /api/prices - CoinGecko integration
-  tokens: TokensAPI,        // /api/tokens - token registry
-  pools: PoolsAPI,          // /api/pools - pool discovery via DEX APIs
+  // Market data (CoinGecko - unified data provider)
+  marketData: {
+    prices: PricesAPI,      // /api/market-data/prices
+    tokens: TokensAPI,      // /api/market-data/tokens
+    pools: PoolsAPI,        // /api/market-data/pools
+  },
 };
 ```
+
+> **Schema Alignment**: Gateway proxy endpoints should use the **exact same request/response schemas** as Gateway. This allows Dashboard to seamlessly switch between direct Gateway calls (dev) and API proxy (production) without code changes.
 
 ---
 
@@ -442,22 +460,36 @@ export const api = {
 
 ### Backend API Changes
 
-- [ ] Add `/api/gateway/*` proxy routes (wallets, balances, swap, clmm, amm)
-- [ ] Implement address-first data transformations for Gateway responses
-- [ ] Add `/api/prices` - CoinGecko integration (independent, not from Gateway)
-- [ ] Add `/api/tokens` - Token registry (independent, not from Gateway)
-- [ ] Add `/api/pools` - Pool discovery via DEX APIs (independent, not from Gateway)
+**Gateway Proxy (same schemas as Gateway `localhost:15888/docs`):**
+- [ ] Add `/api/gateway/wallet/*` proxy → Gateway `/wallet/*`
+- [ ] Add `/api/gateway/chain/*` proxy → Gateway `/chain/*`
+- [ ] Add `/api/gateway/swap/*` proxy → Gateway `/swap/*`
+- [ ] Add `/api/gateway/clmm/*` proxy → Gateway `/clmm/*`
+- [ ] Add `/api/gateway/amm/*` proxy → Gateway `/amm/*`
+- [ ] Ensure request/response schemas match Gateway exactly
+
+**Market Data (CoinGecko - unified data provider):**
+- [ ] Add `/api/market-data/prices` - token prices
+- [ ] Add `/api/market-data/tokens` - token registry & metadata
+- [ ] Add `/api/market-data/pools` - pool discovery & stats
+
+**Infrastructure:**
 - [ ] Add Gateway health check endpoint
 - [ ] Implement unified error handling
 
 ### Dashboard Changes
 
+**Gateway Operations (via API proxy):**
 - [ ] Remove `src/api/gateway/` direct client
-- [ ] Update wallet/swap/clmm/amm calls to use `/api/gateway/*` proxy
-- [ ] Update token display to use `/api/tokens` (not Gateway)
-- [ ] Update pool display to use `/api/pools` (not Gateway)
-- [ ] Update price display to use `/api/prices` (not Gateway)
+- [ ] Update wallet/chain/swap/clmm/amm calls to use `/api/gateway/*`
 - [ ] Remove Gateway proxy from `vite.config.ts`
+
+**Market Data (via CoinGecko):**
+- [ ] Update token display to use `/api/market-data/tokens`
+- [ ] Update pool display to use `/api/market-data/pools`
+- [ ] Update price display to use `/api/market-data/prices`
+
+**Cleanup:**
 - [ ] Update error handling for unified format
 - [ ] Update CLAUDE.md documentation
 

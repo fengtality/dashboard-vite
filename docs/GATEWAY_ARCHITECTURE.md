@@ -89,7 +89,7 @@ These capabilities exist in Gateway for Hummingbot Client, but Dashboard/API sho
 |------------|--------------------------------|---------------------|
 | Token Data | `/tokens/*` - trading-focused lists | `/market-data/tokens` - CoinGecko registry |
 | Pool Data | `/pools/*` - strategy discovery | `/market-data/pools` - CoinGecko pool stats |
-| Price Data | Internal pricing for trades | `/market-data/prices` - CoinGecko prices |
+| Price Data | Internal pricing for trades | Rate Oracle with CoinGecko ([PR #106](https://github.com/hummingbot/hummingbot-api/pull/106)) |
 | Server Config | Logging, ports, infrastructure | API has its own config |
 
 > **Why CoinGecko?** Dashboard needs consistent, display-friendly data across all chains and DEXes. CoinGecko provides unified token metadata, logos, prices, and pool statistics that Gateway's trading-focused endpoints don't offer.
@@ -103,7 +103,7 @@ These capabilities exist in Gateway for Hummingbot Client, but Dashboard/API sho
 | DEX swaps | Gateway (proxy) | `/api/gateway/swap/*` |
 | CLMM positions | Gateway (proxy) | `/api/gateway/clmm/*` |
 | AMM operations | Gateway (proxy) | `/api/gateway/amm/*` |
-| Token prices | CoinGecko | `/api/market-data/prices` |
+| Token prices | Rate Oracle (CoinGecko) | `/api/market-data/prices` |
 | Token metadata | CoinGecko | `/api/market-data/tokens` |
 | Pool statistics | CoinGecko | `/api/market-data/pools` |
 
@@ -269,7 +269,7 @@ const creds = await api.accounts.getCredentials(account);
 
 ### Phase 3: Market Data Service (Medium-term)
 
-Add CoinGecko as unified market data provider:
+Add CoinGecko as unified market data provider, with prices via Rate Oracle:
 
 ```python
 # backend-api/services/market_data.py
@@ -277,8 +277,9 @@ class MarketDataService:
     """CoinGecko integration for prices, tokens, and pools"""
 
     async def get_prices(self, token_ids: list[str]) -> dict:
-        """Fetch token prices"""
-        return await coingecko.get_prices(token_ids)
+        """Fetch token prices via Rate Oracle (CoinGecko)"""
+        # See PR #106: https://github.com/hummingbot/hummingbot-api/pull/106
+        return await rate_oracle.get_prices(token_ids)
 
     async def get_tokens(self, chain: str = None) -> list[Token]:
         """Fetch token registry with metadata & logos"""
@@ -469,7 +470,7 @@ export const api = {
 - [ ] Ensure request/response schemas match Gateway exactly
 
 **Market Data (CoinGecko - unified data provider):**
-- [ ] Add `/api/market-data/prices` - token prices
+- [ ] Add `/api/market-data/prices` - token prices via Rate Oracle ([PR #106](https://github.com/hummingbot/hummingbot-api/pull/106))
 - [ ] Add `/api/market-data/tokens` - token registry & metadata
 - [ ] Add `/api/market-data/pools` - pool discovery & stats
 

@@ -73,7 +73,7 @@ The dashboard currently maintains **two separate API clients**:
 
 | Capability | Description |
 |------------|-------------|
-| **Address-First Schemas** | All operations keyed by blockchain address, not internal IDs |
+| **Address-First Schemas** | All operations keyed by blockchain address, not symbols or internal IDs. API resolves symbols via CoinGecko before calling Gateway. |
 | **Blockchain Reads** | Read balances, positions, transactions via RPC nodes |
 | **Blockchain Writes** | Submit transactions to blockchains via nodes |
 | **DEX Translation** | Convert DEX APIs/SDKs/IDLs to standard REST endpoints |
@@ -92,7 +92,9 @@ These capabilities exist in Gateway for Hummingbot Client, but Dashboard/API sho
 | Price Data | Internal pricing for trades | Rate Oracle with CoinGecko ([PR #106](https://github.com/hummingbot/hummingbot-api/pull/106)) |
 | Server Config | Logging, ports, infrastructure | API has its own config |
 
-> **Why CoinGecko?** Dashboard needs consistent, display-friendly data across all chains and DEXes. CoinGecko provides unified token metadata, logos, prices, and pool statistics that Gateway's trading-focused endpoints don't offer.
+> **Why CoinGecko?** CoinGecko is essential for **symbol-to-address resolution**. Users search by symbol (e.g., "SOL", "USDC"), but all API calls to Gateway use blockchain addresses. CoinGecko provides the lookup service to convert symbols to addresses, plus unified token metadata, logos, prices, and pool statistics.
+
+> **Address-First Flow**: User searches "SOL" → CoinGecko returns address `So11111111111111111111111111111111111111112` → API calls Gateway with address → Gateway executes on-chain operation.
 
 ### Summary: What to Use from Gateway vs CoinGecko
 
@@ -224,6 +226,7 @@ Gateway handles the **complex blockchain interactions** that require specialized
 2. **Direct Lookups**: `GET /gateway/wallets/{address}` instead of `GET /wallet?chain=solana&address=...`
 3. **Cross-Chain Operations**: Easy to query "all wallets" without chain filtering
 4. **Consistent with Blockchain**: Matches how blockchains identify accounts
+5. **Clear Separation**: CoinGecko handles symbol→address resolution; Gateway handles address→blockchain operations
 
 ---
 

@@ -101,7 +101,7 @@ export function WindowToolbar() {
 
   return (
     <>
-      <div className="flex items-center border-b px-2 h-10 gap-2">
+      <div className="flex items-center border-b px-3 py-2 gap-2">
         {/* Market Selector on the left */}
         <MarketSelector />
 

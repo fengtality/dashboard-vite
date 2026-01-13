@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Loader2, Star } from 'lucide-react';
 import { connectors as connectorsApi } from '@/api/hummingbot-api';
 import { gatewayClient } from '@/api/gateway';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { useExperiment, type ConnectorType } from './ExperimentProvider';
+import { useAccount } from '@/components/account-provider';
 import { formatConnectorName } from '@/lib/formatting';
 
 interface ConnectorOption extends ComboboxOption {
@@ -18,9 +19,27 @@ export function MarketSelector() {
     setSelectedConnector,
     setSelectedPair,
   } = useExperiment();
+  const { favorites } = useAccount();
 
   const [connectorOptions, setConnectorOptions] = useState<ConnectorOption[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Get favorite pairs for the selected connector
+  const pairOptions = useMemo(() => {
+    if (!selectedConnector) return [];
+    return favorites
+      .filter(f => f.connector === selectedConnector)
+      .map(f => ({
+        value: f.pair,
+        label: (
+          <span className="flex items-center gap-2">
+            <Star className="h-3 w-3 fill-current text-yellow-500" />
+            {f.pair}
+          </span>
+        ),
+        searchValue: f.pair,
+      }));
+  }, [selectedConnector, favorites]);
 
   // Fetch connectors from both Hummingbot and Gateway
   useEffect(() => {
@@ -84,12 +103,12 @@ export function MarketSelector() {
 
   // Determine placeholder text based on connector type
   const pairPlaceholder = selectedConnectorType === 'gateway'
-    ? 'Token or pool address...'
-    : 'Trading pair (e.g., BTC-USDT)';
+    ? 'Token or pool'
+    : 'Trading pair';
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 px-2">
+      <div className="flex items-center gap-2">
         <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
         <span className="text-sm text-muted-foreground">Loading connectors...</span>
       </div>
@@ -97,7 +116,7 @@ export function MarketSelector() {
   }
 
   return (
-    <div className="flex items-center gap-2 px-2">
+    <div className="flex items-center gap-2">
       <Combobox
         options={connectorOptions}
         value={selectedConnector}
@@ -109,11 +128,11 @@ export function MarketSelector() {
         className="w-[200px] h-8 text-sm"
       />
       <Combobox
-        options={[]}
+        options={pairOptions}
         value={selectedPair}
         onValueChange={setSelectedPair}
         placeholder={pairPlaceholder}
-        searchPlaceholder="Enter pair/token..."
+        searchPlaceholder="Search or enter..."
         emptyText="Type to enter value"
         allowCustomValue
         className="w-[180px] h-8 text-sm"

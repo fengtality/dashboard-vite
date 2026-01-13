@@ -107,7 +107,7 @@ These capabilities exist in Gateway for Hummingbot Client, but Dashboard/API sho
 | Chain status/balances | Gateway (proxy) | `/api/gateway/chain/*` | `/chain/solana`, `/chain/ethereum` |
 | DEX swaps | Gateway (proxy) | `/api/gateway/trading/swap` | `/trading/swap` |
 | CLMM positions | Gateway (proxy) | `/api/gateway/trading/clmm` | `/trading/clmm` |
-| AMM operations | Gateway (proxy) | `/api/gateway/amm/*` | `/amm/*` |
+| AMM operations | Gateway (proxy) | `/api/gateway/trading/amm` | `/trading/amm` |
 | Token prices | CoinGecko | `/api/market-data/prices` | — |
 | Token metadata | CoinGecko | `/api/market-data/tokens` | — |
 | Pool statistics | CoinGecko | `/api/market-data/pools` | — |
@@ -136,8 +136,8 @@ These capabilities exist in Gateway for Hummingbot Client, but Dashboard/API sho
 │  ├── /gateway/config    → Gateway /config                      │
 │  ├── /gateway/wallet/*  → Gateway /wallet/*                    │
 │  ├── /gateway/chain/*   → Gateway /chain/solana, /chain/ethereum│
-│  ├── /gateway/trading/* → Gateway /trading/swap, /trading/clmm │
-│  └── /gateway/amm/*     → Gateway /amm/*                       │
+│  └── /gateway/trading/* → Gateway /trading/swap, /trading/clmm,│
+│                           /trading/amm                         │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -434,8 +434,7 @@ export const api = {
     config: ConfigAPI,      // /api/gateway/config → Gateway /config
     wallet: WalletAPI,      // /api/gateway/wallet/* → Gateway /wallet/*
     chain: ChainAPI,        // /api/gateway/chain/* → Gateway /chain/solana, /chain/ethereum
-    trading: TradingAPI,    // /api/gateway/trading/* → Gateway /trading/swap, /trading/clmm
-    amm: AMMAPI,            // /api/gateway/amm/* → Gateway /amm/*
+    trading: TradingAPI,    // /api/gateway/trading/* → Gateway /trading/swap, /trading/clmm, /trading/amm
   },
 
   // Market data (CoinGecko - unified data provider)
@@ -475,8 +474,7 @@ export const api = {
 - [ ] Add `/api/gateway/config` proxy → Gateway `/config`
 - [ ] Add `/api/gateway/wallet/*` proxy → Gateway `/wallet/*`
 - [ ] Add `/api/gateway/chain/*` proxy → Gateway `/chain/solana`, `/chain/ethereum`
-- [ ] Add `/api/gateway/trading/*` proxy → Gateway `/trading/swap`, `/trading/clmm`
-- [ ] Add `/api/gateway/amm/*` proxy → Gateway `/amm/*`
+- [ ] Add `/api/gateway/trading/*` proxy → Gateway `/trading/swap`, `/trading/clmm`, `/trading/amm`
 - [ ] Pass through requests/responses unchanged (no schema rewriting)
 - [ ] Do NOT proxy connector-specific endpoints (e.g., `/connectors/orca/*`)
 

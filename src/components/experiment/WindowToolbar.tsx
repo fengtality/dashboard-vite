@@ -38,7 +38,6 @@ import {
   Trash2,
   AreaChart,
   Save,
-  Pencil,
 } from 'lucide-react';
 
 interface WindowOption {
@@ -71,9 +70,6 @@ const settingsWindows: WindowOption[] = [
   { type: 'keys', label: 'API Keys', icon: Key, shortcut: '⌘K' },
 ];
 
-// Default layout IDs that cannot be modified
-const DEFAULT_LAYOUT_IDS = ['trading', 'monitoring', 'chart-focus'];
-
 export function WindowToolbar() {
   const {
     addWindow,
@@ -82,28 +78,16 @@ export function WindowToolbar() {
     layouts,
     applyLayout,
     saveCurrentLayout,
-    deleteLayout,
-    renameLayout,
   } = useExperiment();
 
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [newLayoutName, setNewLayoutName] = useState('');
-  const [editingLayoutId, setEditingLayoutId] = useState<string | null>(null);
-  const [editingLayoutName, setEditingLayoutName] = useState('');
 
   const handleSaveLayout = () => {
     if (newLayoutName.trim()) {
       saveCurrentLayout(newLayoutName.trim());
       setNewLayoutName('');
       setSaveDialogOpen(false);
-    }
-  };
-
-  const handleRenameLayout = (layoutId: string) => {
-    if (editingLayoutName.trim()) {
-      renameLayout(layoutId, editingLayoutName.trim());
-      setEditingLayoutId(null);
-      setEditingLayoutName('');
     }
   };
 
@@ -117,135 +101,95 @@ export function WindowToolbar() {
 
   return (
     <>
-      <Menubar className="rounded-none border-x-0 border-t-0 px-2">
-        <MenubarMenu>
-          <MenubarTrigger className="font-medium">Windows</MenubarTrigger>
-          <MenubarContent>
-            <MenubarSub>
-              <MenubarSubTrigger>
-                <BarChart3 className="mr-2 h-4 w-4" />
-                Market Data
-              </MenubarSubTrigger>
-              <MenubarSubContent>
-                {marketDataWindows.map(renderWindowItem)}
-              </MenubarSubContent>
-            </MenubarSub>
-            <MenubarSub>
-              <MenubarSubTrigger>
-                <ArrowRightLeft className="mr-2 h-4 w-4" />
-                Trading
-              </MenubarSubTrigger>
-              <MenubarSubContent>
-                {tradingWindows.map(renderWindowItem)}
-              </MenubarSubContent>
-            </MenubarSub>
-            <MenubarSub>
-              <MenubarSubTrigger>
-                <Wallet className="mr-2 h-4 w-4" />
-                Portfolio
-              </MenubarSubTrigger>
-              <MenubarSubContent>
-                {portfolioWindows.map(renderWindowItem)}
-              </MenubarSubContent>
-            </MenubarSub>
-            <MenubarSeparator />
-            {settingsWindows.map(renderWindowItem)}
-            <MenubarSeparator />
-            <MenubarItem
-              onClick={clearAllWindows}
-              disabled={windows.length === 0}
-              className="text-destructive focus:text-destructive"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Close All Windows
-            </MenubarItem>
-          </MenubarContent>
-        </MenubarMenu>
-
-        <MenubarMenu>
-          <MenubarTrigger className="font-medium">Layout</MenubarTrigger>
-          <MenubarContent>
-            <MenubarSub>
-              <MenubarSubTrigger>
-                <LayoutGrid className="mr-2 h-4 w-4" />
-                Apply Layout
-              </MenubarSubTrigger>
-              <MenubarSubContent>
-                {layouts.map((layout) => (
-                  <MenubarItem
-                    key={layout.id}
-                    onClick={() => applyLayout(layout.id)}
-                  >
-                    {layout.name}
-                    {!DEFAULT_LAYOUT_IDS.includes(layout.id) && (
-                      <span className="ml-2 text-xs text-muted-foreground">(custom)</span>
-                    )}
-                  </MenubarItem>
-                ))}
-              </MenubarSubContent>
-            </MenubarSub>
-            <MenubarSeparator />
-            <MenubarItem
-              onClick={() => setSaveDialogOpen(true)}
-              disabled={windows.length === 0}
-            >
-              <Save className="mr-2 h-4 w-4" />
-              Save Current Layout...
-            </MenubarItem>
-            <MenubarSub>
-              <MenubarSubTrigger>
-                <Pencil className="mr-2 h-4 w-4" />
-                Manage Layouts
-              </MenubarSubTrigger>
-              <MenubarSubContent>
-                {layouts.filter(l => !DEFAULT_LAYOUT_IDS.includes(l.id)).length === 0 ? (
-                  <MenubarItem disabled>
-                    No custom layouts
-                  </MenubarItem>
-                ) : (
-                  layouts
-                    .filter(l => !DEFAULT_LAYOUT_IDS.includes(l.id))
-                    .map((layout) => (
-                      <MenubarSub key={layout.id}>
-                        <MenubarSubTrigger>{layout.name}</MenubarSubTrigger>
-                        <MenubarSubContent>
-                          <MenubarItem
-                            onClick={() => {
-                              setEditingLayoutId(layout.id);
-                              setEditingLayoutName(layout.name);
-                            }}
-                          >
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Rename
-                          </MenubarItem>
-                          <MenubarItem
-                            onClick={() => deleteLayout(layout.id)}
-                            className="text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </MenubarItem>
-                        </MenubarSubContent>
-                      </MenubarSub>
-                    ))
-                )}
-              </MenubarSubContent>
-            </MenubarSub>
-            <MenubarSeparator />
-            <MenubarItem
-              onClick={clearAllWindows}
-              disabled={windows.length === 0}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Clear Layout
-            </MenubarItem>
-          </MenubarContent>
-        </MenubarMenu>
-
-        {/* Market Selector */}
-        <div className="flex-1" />
+      <div className="flex items-center border-b px-2 h-10 gap-2">
+        {/* Market Selector on the left */}
         <MarketSelector />
-      </Menubar>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Windows and Layout dropdowns on the right */}
+        <Menubar className="border-0 bg-transparent p-0 h-auto">
+          <MenubarMenu>
+            <MenubarTrigger className="h-8 px-3 text-sm font-medium">
+              <LayoutGrid className="mr-2 h-4 w-4" />
+              Windows
+            </MenubarTrigger>
+            <MenubarContent>
+              <MenubarSub>
+                <MenubarSubTrigger>
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  Market Data
+                </MenubarSubTrigger>
+                <MenubarSubContent>
+                  {marketDataWindows.map(renderWindowItem)}
+                </MenubarSubContent>
+              </MenubarSub>
+              <MenubarSub>
+                <MenubarSubTrigger>
+                  <ArrowRightLeft className="mr-2 h-4 w-4" />
+                  Trading
+                </MenubarSubTrigger>
+                <MenubarSubContent>
+                  {tradingWindows.map(renderWindowItem)}
+                </MenubarSubContent>
+              </MenubarSub>
+              <MenubarSub>
+                <MenubarSubTrigger>
+                  <Wallet className="mr-2 h-4 w-4" />
+                  Portfolio
+                </MenubarSubTrigger>
+                <MenubarSubContent>
+                  {portfolioWindows.map(renderWindowItem)}
+                </MenubarSubContent>
+              </MenubarSub>
+              <MenubarSeparator />
+              {settingsWindows.map(renderWindowItem)}
+              <MenubarSeparator />
+              <MenubarItem
+                onClick={clearAllWindows}
+                disabled={windows.length === 0}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Close All Windows
+              </MenubarItem>
+            </MenubarContent>
+          </MenubarMenu>
+
+          <MenubarMenu>
+            <MenubarTrigger className="h-8 px-3 text-sm font-medium">
+              <Layers className="mr-2 h-4 w-4" />
+              Layout
+            </MenubarTrigger>
+            <MenubarContent>
+              {layouts.map((layout) => (
+                <MenubarItem
+                  key={layout.id}
+                  onClick={() => applyLayout(layout.id)}
+                >
+                  {layout.name}
+                </MenubarItem>
+              ))}
+              <MenubarSeparator />
+              <MenubarItem
+                onClick={() => setSaveDialogOpen(true)}
+                disabled={windows.length === 0}
+              >
+                <Save className="mr-2 h-4 w-4" />
+                Save Layout...
+              </MenubarItem>
+              <MenubarItem
+                onClick={clearAllWindows}
+                disabled={windows.length === 0}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Clear
+              </MenubarItem>
+            </MenubarContent>
+          </MenubarMenu>
+        </Menubar>
+      </div>
 
       {/* Save Layout Dialog */}
       <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
@@ -275,36 +219,6 @@ export function WindowToolbar() {
         </DialogContent>
       </Dialog>
 
-      {/* Rename Layout Dialog */}
-      <Dialog open={!!editingLayoutId} onOpenChange={(open) => !open && setEditingLayoutId(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Rename Layout</DialogTitle>
-            <DialogDescription>
-              Enter a new name for this layout.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Input
-              placeholder="Layout name"
-              value={editingLayoutName}
-              onChange={(e) => setEditingLayoutName(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && editingLayoutId && handleRenameLayout(editingLayoutId)}
-            />
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingLayoutId(null)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={() => editingLayoutId && handleRenameLayout(editingLayoutId)}
-              disabled={!editingLayoutName.trim()}
-            >
-              Rename
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
   );
 }

@@ -186,55 +186,39 @@ Gateway handles the **complex blockchain interactions** that require specialized
 
 ---
 
-## Data Model Changes
+## Simplifying API Wallet Endpoints
 
-### Current: Chain-Grouped (Gateway)
+### Current: Redundant API Endpoints
 
-```json
-// GET /wallet
-[
-  {
-    "chain": "solana",
-    "walletAddresses": ["82Sgg...", "9xKm..."]
-  },
-  {
-    "chain": "ethereum",
-    "walletAddresses": ["0xDA50..."]
-  }
-]
+The API currently has multiple wallet endpoints that duplicate Gateway functionality:
+
+```
+# Current API endpoints (to be removed)
+POST   /accounts/gateway/add-wallet
+DELETE /accounts/gateway/{chain}/{address}
+POST   /gateway/wallets/create
+GET    /gateway/wallets/show-private-key
+POST   /gateway/wallets/send
 ```
 
-### Proposed: Address-First (API)
+### Proposed: Direct Gateway Proxy
 
-```json
-// GET /gateway/wallets
-{
-  "wallets": [
-    {
-      "address": "82SggYRE2Vo4jN4a2pk3aQ4SET4ctafZJGbowmCqyHx5",
-      "chain": "solana",
-      "isDefault": true,
-      "label": "Main Trading",
-      "createdAt": "2024-01-15T10:30:00Z"
-    },
-    {
-      "address": "0xDA50C69342216b538Daf06FfECDa7363E0B96684",
-      "chain": "ethereum",
-      "isDefault": true,
-      "label": "ETH Main",
-      "createdAt": "2024-01-10T08:00:00Z"
-    }
-  ]
-}
+Simply proxy Gateway's `/wallet/*` endpoints without transformation:
+
+```
+# API proxies Gateway directly
+GET    /api/gateway/wallet      → Gateway GET  /wallet
+POST   /api/gateway/wallet/add  → Gateway POST /wallet/add
+DELETE /api/gateway/wallet/remove → Gateway DELETE /wallet/remove
 ```
 
-### Benefits of Address-First
+### Benefits
 
-1. **Unique Identifiers**: Addresses are globally unique, no composite keys needed
-2. **Direct Lookups**: `GET /gateway/wallets/{address}` instead of `GET /wallet?chain=solana&address=...`
-3. **Cross-Chain Operations**: Easy to query "all wallets" without chain filtering
-4. **Consistent with Blockchain**: Matches how blockchains identify accounts
-5. **Clear Separation**: CoinGecko handles symbol→address resolution; Gateway handles address→blockchain operations
+1. **No schema transformation**: Use Gateway's response format as-is
+2. **Single source of truth**: Gateway manages all wallet operations
+3. **Reduced complexity**: Remove redundant API endpoints
+4. **Consistent behavior**: Dashboard and Hummingbot Client use same Gateway endpoints
+5. **Clear separation**: CoinGecko handles symbol→address resolution; Gateway handles address→blockchain operations
 
 ---
 

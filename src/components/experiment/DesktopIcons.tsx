@@ -1,4 +1,6 @@
+import { useState, useCallback } from 'react';
 import { useExperiment, type WindowType } from './ExperimentProvider';
+import { cn } from '@/lib/utils';
 import {
   BarChart3,
   BookOpen,
@@ -35,24 +37,60 @@ const desktopIcons: DesktopIcon[] = [
 
 export function DesktopIcons() {
   const { addWindow } = useExperiment();
+  const [selectedIcon, setSelectedIcon] = useState<WindowType | null>(null);
+
+  // Handle single click - select icon
+  const handleClick = useCallback((type: WindowType, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIcon(type);
+  }, []);
+
+  // Handle double click - open window
+  const handleDoubleClick = useCallback((type: WindowType) => {
+    addWindow(type);
+    setSelectedIcon(null);
+  }, [addWindow]);
+
+  // Handle click on desktop background - deselect
+  const handleDesktopClick = useCallback(() => {
+    setSelectedIcon(null);
+  }, []);
 
   return (
-    <div className="absolute top-4 left-4 flex flex-col gap-2 z-0">
-      {desktopIcons.map((icon) => (
-        <button
-          key={icon.type}
-          className="flex flex-col items-center gap-1 p-2 rounded-lg hover:bg-accent/50 transition-colors w-20 group"
-          onDoubleClick={() => addWindow(icon.type)}
-          title={`Double-click to open ${icon.label}`}
-        >
-          <div className="w-12 h-12 rounded-lg bg-background/80 border shadow-sm flex items-center justify-center group-hover:scale-105 transition-transform">
-            <icon.icon className="h-6 w-6 text-foreground" />
-          </div>
-          <span className="text-xs text-center text-foreground/90 leading-tight">
-            {icon.label}
-          </span>
-        </button>
-      ))}
+    <div
+      className="absolute inset-0 z-0"
+      onClick={handleDesktopClick}
+    >
+      <div className="absolute top-4 left-4 flex flex-col gap-1">
+        {desktopIcons.map((icon) => {
+          const isSelected = selectedIcon === icon.type;
+          return (
+            <button
+              key={icon.type}
+              className={cn(
+                'flex flex-col items-center gap-1 p-2 rounded w-20 transition-colors',
+                'hover:bg-accent/30',
+                isSelected && 'bg-accent/50'
+              )}
+              onClick={(e) => handleClick(icon.type, e)}
+              onDoubleClick={() => handleDoubleClick(icon.type)}
+            >
+              <div className={cn(
+                'w-12 h-12 rounded-lg bg-background/80 border shadow-sm flex items-center justify-center transition-all',
+                isSelected && 'ring-2 ring-primary'
+              )}>
+                <icon.icon className="h-6 w-6 text-foreground" />
+              </div>
+              <span className={cn(
+                'text-xs text-center leading-tight px-1 rounded',
+                isSelected ? 'bg-primary text-primary-foreground' : 'text-foreground/90'
+              )}>
+                {icon.label}
+              </span>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

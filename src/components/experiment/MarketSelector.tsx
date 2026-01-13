@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Loader2, Star } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 import { connectors as connectorsApi } from '@/api/hummingbot-api';
 import { gatewayClient } from '@/api/gateway';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
+import { Button } from '@/components/ui/button';
 import { useExperiment, type ConnectorType } from './ExperimentProvider';
 import { useAccount } from '@/components/account-provider';
 import { formatConnectorName } from '@/lib/formatting';
@@ -23,23 +24,6 @@ export function MarketSelector() {
 
   const [connectorOptions, setConnectorOptions] = useState<ConnectorOption[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Get favorite pairs for the selected connector
-  const pairOptions = useMemo(() => {
-    if (!selectedConnector) return [];
-    return favorites
-      .filter(f => f.connector === selectedConnector)
-      .map(f => ({
-        value: f.pair,
-        label: (
-          <span className="flex items-center gap-2">
-            <Star className="h-3 w-3 fill-current text-yellow-500" />
-            {f.pair}
-          </span>
-        ),
-        searchValue: f.pair,
-      }));
-  }, [selectedConnector, favorites]);
 
   // Fetch connectors from both Hummingbot and Gateway
   useEffect(() => {
@@ -115,6 +99,18 @@ export function MarketSelector() {
     );
   }
 
+  const handleFavoriteClick = (connector: string, pair: string) => {
+    // Find connector type
+    const option = connectorOptions.find(o => o.value === connector);
+    const type: ConnectorType = option?.connectorType ||
+      (connector.includes('-') && (connector.includes('mainnet') || connector.includes('testnet'))
+        ? 'gateway'
+        : 'hummingbot');
+
+    setSelectedConnector(connector, type);
+    setSelectedPair(pair);
+  };
+
   return (
     <div className="flex items-center gap-2">
       <Combobox
@@ -128,16 +124,45 @@ export function MarketSelector() {
         className="w-[200px] h-8 text-sm"
       />
       <Combobox
-        options={pairOptions}
+        options={[]}
         value={selectedPair}
         onValueChange={setSelectedPair}
         placeholder={pairPlaceholder}
-        searchPlaceholder="Search or enter..."
+        searchPlaceholder="Enter pair..."
         emptyText="Type to enter value"
         allowCustomValue
         className="w-[180px] h-8 text-sm"
         disabled={!selectedConnector}
       />
+
+      {/* Favorite pairs as buttons */}
+      {favorites.length > 0 && (
+        <>
+          <div className="w-px h-6 bg-border" />
+          <div className="flex items-center gap-1 overflow-x-auto">
+            {favorites.map((fav) => {
+              const exchangeName = formatConnectorName(fav.connector, true);
+              const initial = exchangeName.charAt(0).toUpperCase();
+              const isActive = selectedConnector === fav.connector && selectedPair === fav.pair;
+              return (
+                <Button
+                  key={`${fav.connector}-${fav.pair}`}
+                  variant={isActive ? 'default' : 'outline'}
+                  size="sm"
+                  className="h-7 px-2 text-xs whitespace-nowrap"
+                  onClick={() => handleFavoriteClick(fav.connector, fav.pair)}
+                  title={`${exchangeName} - ${fav.pair}`}
+                >
+                  <span className="w-4 h-4 rounded bg-muted text-muted-foreground flex items-center justify-center text-[10px] font-semibold mr-1.5">
+                    {initial}
+                  </span>
+                  {fav.pair}
+                </Button>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }

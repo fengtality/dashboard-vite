@@ -149,7 +149,10 @@ function DraggableWindow({ window }: DraggableWindowProps) {
           </div>
           {/* Content */}
           <div className="flex-1 overflow-auto p-3">
-            <WindowContent window={window} />
+            <WindowContent
+              key={`${window.id}-${window.context?.connector}-${window.context?.pair}`}
+              window={window}
+            />
           </div>
           </div>
         </ContextMenuTrigger>

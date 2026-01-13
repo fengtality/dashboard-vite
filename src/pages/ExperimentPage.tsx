@@ -2,7 +2,6 @@ import { ExperimentProvider } from '@/components/experiment/ExperimentProvider';
 import { WindowManager } from '@/components/experiment/WindowManager';
 import { WindowToolbar } from '@/components/experiment/WindowToolbar';
 import { Taskbar } from '@/components/experiment/Taskbar';
-import { DesktopIcons } from '@/components/experiment/DesktopIcons';
 
 export default function ExperimentPage() {
   return (
@@ -11,9 +10,8 @@ export default function ExperimentPage() {
         {/* Top bar with market selector */}
         <WindowToolbar />
 
-        {/* Desktop area with icons and windows */}
+        {/* Desktop area with windows */}
         <div className="flex-1 relative bg-muted/30 overflow-hidden">
-          <DesktopIcons />
           <WindowManager />
         </div>
 

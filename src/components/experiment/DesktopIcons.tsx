@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { useExperiment, type WindowType } from './ExperimentProvider';
 import { cn } from '@/lib/utils';
 import {
@@ -11,7 +11,6 @@ import {
   ArrowRightLeft,
   Bot,
   Key,
-  Layers,
   AreaChart,
 } from 'lucide-react';
 
@@ -31,39 +30,25 @@ const defaultIcons: DesktopIconDef[] = [
   { type: 'orders', label: 'Orders', icon: ClipboardList },
   { type: 'trades', label: 'Trades', icon: History },
   { type: 'positions', label: 'Positions', icon: TrendingUp },
-  { type: 'lp-positions', label: 'LP Positions', icon: Layers },
   { type: 'keys', label: 'API Keys', icon: Key },
 ];
 
-// Initial positions for icons in a grid
+// Icon dimensions
 const ICON_WIDTH = 80;
 const ICON_HEIGHT = 90;
-const GRID_COLS = 1;
-const START_X = 16;
+const START_RIGHT = 16;
 const START_Y = 16;
 
-function getInitialPositions(): Record<WindowType, { x: number; y: number }> {
-  const positions: Record<string, { x: number; y: number }> = {};
-  defaultIcons.forEach((icon, index) => {
-    const col = index % GRID_COLS;
-    const row = Math.floor(index / GRID_COLS);
-    positions[icon.type] = {
-      x: START_X + col * ICON_WIDTH,
-      y: START_Y + row * ICON_HEIGHT,
-    };
-  });
-  return positions as Record<WindowType, { x: number; y: number }>;
-}
-
 export function DesktopIcons() {
-  const { addWindow, windows, bringToFront } = useExperiment();
+  const { addWindow, windows, bringToFront, selectedConnectorType } = useExperiment();
   const [selectedIcon, setSelectedIcon] = useState<WindowType | null>(null);
-  const [positions, setPositions] = useState(getInitialPositions);
-  const [dragging, setDragging] = useState<WindowType | null>(null);
-  const dragOffset = useRef({ x: 0, y: 0 });
 
   // Check if a window of this type is open
   const isWindowOpen = useCallback((type: WindowType) => {
+    // For positions, check both positions and lp-positions
+    if (type === 'positions') {
+      return windows.some(w => w.type === 'positions' || w.type === 'lp-positions');
+    }
     return windows.some(w => w.type === type);
   }, [windows]);
 
@@ -81,62 +66,31 @@ export function DesktopIcons() {
 
   // Handle double click - open window
   const handleDoubleClick = useCallback((type: WindowType) => {
-    addWindow(type);
+    // For positions, open the appropriate window type based on connector
+    if (type === 'positions' && selectedConnectorType === 'gateway') {
+      addWindow('lp-positions');
+    } else {
+      addWindow(type);
+    }
     setSelectedIcon(null);
-  }, [addWindow]);
-
-  // Drag handlers
-  const handleMouseDown = useCallback((type: WindowType, e: React.MouseEvent) => {
-    e.preventDefault();
-    setDragging(type);
-    setSelectedIcon(type);
-    const pos = positions[type];
-    dragOffset.current = {
-      x: e.clientX - pos.x,
-      y: e.clientY - pos.y,
-    };
-
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      setPositions(prev => ({
-        ...prev,
-        [type]: {
-          x: moveEvent.clientX - dragOffset.current.x,
-          y: moveEvent.clientY - dragOffset.current.y,
-        },
-      }));
-    };
-
-    const handleMouseUp = () => {
-      setDragging(null);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  }, [positions]);
+  }, [addWindow, selectedConnectorType]);
 
   return (
     <div className="absolute inset-0 z-10 pointer-events-none">
-      {defaultIcons.map((icon) => {
+      {defaultIcons.map((icon, index) => {
         const isSelected = selectedIcon === icon.type;
         const isOpen = isWindowOpen(icon.type);
-        const isDragging = dragging === icon.type;
-        const pos = positions[icon.type];
+        const top = START_Y + index * ICON_HEIGHT;
 
         return (
           <div
             key={icon.type}
-            className={cn(
-              'absolute pointer-events-auto cursor-default select-none',
-              isDragging && 'cursor-grabbing opacity-80'
-            )}
+            className="absolute pointer-events-auto cursor-default select-none"
             style={{
-              left: pos.x,
-              top: pos.y,
+              right: START_RIGHT,
+              top,
               width: ICON_WIDTH,
             }}
-            onMouseDown={(e) => handleMouseDown(icon.type, e)}
             onClick={(e) => handleClick(icon.type, e)}
             onDoubleClick={() => handleDoubleClick(icon.type)}
           >

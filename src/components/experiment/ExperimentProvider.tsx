@@ -69,18 +69,15 @@ interface ExperimentContextType {
   restoreWindow: (id: string) => void;
   clearAllWindows: () => void;
 
-  // Layouts
-  layouts: Layout[];
-  applyLayout: (layoutId: string) => void;
-  saveCurrentLayout: (name: string) => void;
-  deleteLayout: (layoutId: string) => void;
-  renameLayout: (layoutId: string, newName: string) => void;
+  // Layout (simplified)
+  saveLayout: () => void;
+  resetLayout: () => void;
 }
 
 const ExperimentContext = createContext<ExperimentContextType | undefined>(undefined);
 
 const WINDOWS_STORAGE_KEY = 'condor-experiment-windows';
-const LAYOUTS_STORAGE_KEY = 'condor-experiment-layouts';
+const USER_LAYOUT_STORAGE_KEY = 'condor-experiment-user-layout';
 const MARKET_STORAGE_KEY = 'condor-experiment-market';
 
 // Default sizes and titles for window types
@@ -186,22 +183,15 @@ export function ExperimentProvider({ children }: { children: ReactNode }) {
     return [];
   });
 
-  // Layouts state
-  const [layouts, setLayouts] = useState<Layout[]>(() => {
+  // User's saved layout (or null if using default)
+  const [userLayout, setUserLayout] = useState<LayoutWindow[] | null>(() => {
     try {
-      const saved = localStorage.getItem(LAYOUTS_STORAGE_KEY);
+      const saved = localStorage.getItem(USER_LAYOUT_STORAGE_KEY);
       if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Merge with default layouts (defaults take precedence for built-in IDs)
-          const customLayouts = parsed.filter((l: Layout) =>
-            !DEFAULT_LAYOUTS.some(d => d.id === l.id)
-          );
-          return [...DEFAULT_LAYOUTS, ...customLayouts];
-        }
+        return JSON.parse(saved);
       }
     } catch { /* ignore */ }
-    return DEFAULT_LAYOUTS;
+    return null;
   });
 
   // Persist state to localStorage
@@ -218,10 +208,12 @@ export function ExperimentProvider({ children }: { children: ReactNode }) {
   }, [selectedConnector, selectedConnectorType, selectedPair]);
 
   useEffect(() => {
-    // Only save custom layouts (not defaults)
-    const customLayouts = layouts.filter(l => !DEFAULT_LAYOUTS.some(d => d.id === l.id));
-    localStorage.setItem(LAYOUTS_STORAGE_KEY, JSON.stringify([...DEFAULT_LAYOUTS, ...customLayouts]));
-  }, [layouts]);
+    if (userLayout) {
+      localStorage.setItem(USER_LAYOUT_STORAGE_KEY, JSON.stringify(userLayout));
+    } else {
+      localStorage.removeItem(USER_LAYOUT_STORAGE_KEY);
+    }
+  }, [userLayout]);
 
   // Market selection methods
   const setSelectedConnector = useCallback((connector: string, type: ConnectorType) => {
@@ -240,15 +232,47 @@ export function ExperimentProvider({ children }: { children: ReactNode }) {
 
   const setSelectedPair = useCallback((pair: string) => {
     setSelectedPairState(pair);
-    // Update all windows with new pair context
-    setWindows(prev => prev.map(w => ({
-      ...w,
-      context: {
-        ...w.context,
-        pair,
-      },
-    })));
-  }, []);
+
+    // If no windows are open and a pair is selected, apply the user's layout or default
+    setWindows(prev => {
+      if (prev.length === 0 && pair) {
+        // Use user's saved layout, or fall back to default trading layout
+        const layoutWindows = userLayout || DEFAULT_LAYOUTS.find(l => l.id === 'trading')?.windows;
+        if (layoutWindows) {
+          windowCounter = 0;
+          const context: WindowContext = {
+            connector: selectedConnector,
+            connectorType: selectedConnectorType,
+            pair,
+          };
+          return layoutWindows.map((lw, index) => {
+            windowCounter++;
+            const defaults = WINDOW_DEFAULTS[lw.type];
+            return {
+              id: `window-${windowCounter}`,
+              type: lw.type,
+              title: defaults.title,
+              x: lw.x,
+              y: lw.y,
+              width: lw.width,
+              height: lw.height,
+              zIndex: index + 1,
+              minimized: false,
+              context,
+            };
+          });
+        }
+      }
+      // Update existing windows with new pair context
+      return prev.map(w => ({
+        ...w,
+        context: {
+          ...w.context,
+          pair,
+        },
+      }));
+    });
+  }, [selectedConnector, selectedConnectorType, userLayout]);
 
   const getMaxZIndex = useCallback(() => {
     return Math.max(0, ...windows.map(w => w.zIndex));
@@ -351,38 +375,9 @@ export function ExperimentProvider({ children }: { children: ReactNode }) {
     windowCounter = 0;
   }, []);
 
-  // Layout methods
-  const applyLayout = useCallback((layoutId: string) => {
-    const layout = layouts.find(l => l.id === layoutId);
-    if (!layout) return;
-
-    // Clear existing windows
-    windowCounter = 0;
-    const context = getCurrentContext();
-
-    // Create new windows from layout
-    const newWindows: WindowState[] = layout.windows.map((lw, index) => {
-      windowCounter++;
-      const defaults = WINDOW_DEFAULTS[lw.type];
-      return {
-        id: `window-${windowCounter}`,
-        type: lw.type,
-        title: defaults.title,
-        x: lw.x,
-        y: lw.y,
-        width: lw.width,
-        height: lw.height,
-        zIndex: index + 1,
-        minimized: false,
-        context,
-      };
-    });
-
-    setWindows(newWindows);
-  }, [layouts, getCurrentContext]);
-
-  const saveCurrentLayout = useCallback((name: string) => {
-    const id = `custom-${Date.now()}`;
+  // Layout methods (simplified)
+  const saveLayout = useCallback(() => {
+    // Save current windows as user's default layout
     const layoutWindows: LayoutWindow[] = windows.map(w => ({
       type: w.type,
       x: w.x,
@@ -390,29 +385,37 @@ export function ExperimentProvider({ children }: { children: ReactNode }) {
       width: w.width,
       height: w.height,
     }));
-
-    const newLayout: Layout = {
-      id,
-      name,
-      windows: layoutWindows,
-    };
-
-    setLayouts(prev => [...prev, newLayout]);
+    setUserLayout(layoutWindows);
   }, [windows]);
 
-  const deleteLayout = useCallback((layoutId: string) => {
-    // Don't allow deleting default layouts
-    if (DEFAULT_LAYOUTS.some(d => d.id === layoutId)) return;
-    setLayouts(prev => prev.filter(l => l.id !== layoutId));
-  }, []);
+  const resetLayout = useCallback(() => {
+    // Clear user's saved layout and apply default
+    setUserLayout(null);
 
-  const renameLayout = useCallback((layoutId: string, newName: string) => {
-    // Don't allow renaming default layouts
-    if (DEFAULT_LAYOUTS.some(d => d.id === layoutId)) return;
-    setLayouts(prev => prev.map(l =>
-      l.id === layoutId ? { ...l, name: newName } : l
-    ));
-  }, []);
+    // Apply default trading layout
+    const tradingLayout = DEFAULT_LAYOUTS.find(l => l.id === 'trading');
+    if (tradingLayout) {
+      windowCounter = 0;
+      const context = getCurrentContext();
+      const newWindows: WindowState[] = tradingLayout.windows.map((lw, index) => {
+        windowCounter++;
+        const defaults = WINDOW_DEFAULTS[lw.type];
+        return {
+          id: `window-${windowCounter}`,
+          type: lw.type,
+          title: defaults.title,
+          x: lw.x,
+          y: lw.y,
+          width: lw.width,
+          height: lw.height,
+          zIndex: index + 1,
+          minimized: false,
+          context,
+        };
+      });
+      setWindows(newWindows);
+    }
+  }, [getCurrentContext]);
 
   return (
     <ExperimentContext.Provider value={{
@@ -432,12 +435,9 @@ export function ExperimentProvider({ children }: { children: ReactNode }) {
       minimizeWindow,
       restoreWindow,
       clearAllWindows,
-      // Layouts
-      layouts,
-      applyLayout,
-      saveCurrentLayout,
-      deleteLayout,
-      renameLayout,
+      // Layout
+      saveLayout,
+      resetLayout,
     }}>
       {children}
     </ExperimentContext.Provider>

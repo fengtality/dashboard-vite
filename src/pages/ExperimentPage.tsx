@@ -7,7 +7,7 @@ import { DesktopIcons } from '@/components/experiment/DesktopIcons';
 export default function ExperimentPage() {
   return (
     <ExperimentProvider>
-      <div className="flex flex-col h-[calc(100vh-theme(spacing.14)-theme(spacing.10)-theme(spacing.8))] -mx-4 md:-mx-6 -mt-4 md:-mt-6">
+      <div className="flex flex-col h-[calc(100vh-theme(spacing.14)-theme(spacing.10))] -mx-4 md:-mx-6 -mt-4 md:-mt-6 -mb-4 md:-mb-6">
         {/* Top bar with market selector */}
         <WindowToolbar />
 

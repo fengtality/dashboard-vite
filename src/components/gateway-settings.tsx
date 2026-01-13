@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { gatewayClient } from '@/api/gateway';
-import { gateway, docker } from '@/api/hummingbot-api';
-import { Loader2, Play, Square, RefreshCw, Server, Globe, Plug, Key, Check, X } from 'lucide-react';
+import { gateway, docker, type GatewayStatus } from '@/api/hummingbot-api';
+import { useGatewayStatus } from '@/components/gateway-status-provider';
+import { Loader2, Play, Square, RefreshCw, Server, Globe, Plug, Key, Check, X, ChevronDown, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -30,10 +33,14 @@ interface ConnectorInfo {
 }
 
 export function GatewaySettings() {
+  const { status, refresh: refreshGatewayStatus } = useGatewayStatus();
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [status, setStatus] = useState<'running' | 'stopped' | 'unknown'>('unknown');
-  const [version, setVersion] = useState<string | null>(null);
+  const [containerInfo, setContainerInfo] = useState<GatewayStatus | null>(null);
+  const [logsOpen, setLogsOpen] = useState(false);
+  const [logs, setLogs] = useState<string>('');
+  const [logsLoading, setLogsLoading] = useState(false);
+  const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Config data
   const [config, setConfig] = useState<GatewayConfig>({});
@@ -52,21 +59,15 @@ export function GatewaySettings() {
   const [passphrase, setPassphrase] = useState('');
   const [selectedImage, setSelectedImage] = useState('hummingbot/gateway:latest');
   const [availableImages, setAvailableImages] = useState<string[]>(['hummingbot/gateway:latest']);
-  const [devMode, setDevMode] = useState(true);
 
-  // Fetch all Gateway data
+  // Fetch all Gateway data (config, chains, connectors when running)
   async function fetchGatewayData() {
     setLoading(true);
     try {
-      // Check if Gateway is running
-      const health = await gatewayClient.health();
-      const isRunning = health.status === 'ok';
-      setStatus(isRunning ? 'running' : 'stopped');
-
-      if (isRunning) {
-        // Fetch version
-        const statusInfo = await gatewayClient.status().catch(() => null);
-        setVersion(statusInfo?.version || null);
+      if (status === 'running') {
+        // Fetch container info from API
+        const statusInfo = await gateway.getStatus().catch(() => null);
+        setContainerInfo(statusInfo);
 
         // Fetch all config, chains, and connectors in parallel
         const [configRes, chainsRes, connectorsRes] = await Promise.all([
@@ -90,9 +91,16 @@ export function GatewaySettings() {
         if (connectorsRes.connectors?.length > 0) {
           setSelectedConnector(connectorsRes.connectors[0].name);
         }
+      } else {
+        // Reset data when stopped
+        setContainerInfo(null);
+        setConfig({});
+        setChains([]);
+        setConnectors([]);
       }
     } catch {
-      setStatus('stopped');
+      // Reset on error
+      setContainerInfo(null);
     } finally {
       setLoading(false);
     }
@@ -118,8 +126,32 @@ export function GatewaySettings() {
 
   useEffect(() => {
     fetchGatewayData();
+  }, [status]);
+
+  useEffect(() => {
     fetchAvailableImages();
   }, []);
+
+  // Fetch logs when panel is opened
+  async function fetchLogs() {
+    setLogsLoading(true);
+    try {
+      const result = await gateway.getLogs(100);
+      setLogs(result.logs || '');
+      // Scroll to bottom after render
+      setTimeout(() => logsEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+    } catch (err) {
+      toast.error('Failed to fetch logs');
+    } finally {
+      setLogsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (logsOpen && status === 'running') {
+      fetchLogs();
+    }
+  }, [logsOpen, status]);
 
   // Gateway control actions
   async function handleStart() {
@@ -129,9 +161,10 @@ export function GatewaySettings() {
     }
     setActionLoading(true);
     try {
-      await gateway.start({ passphrase, image: selectedImage, dev_mode: devMode });
-      toast.success('Gateway started');
-      await fetchGatewayData();
+      await gateway.start({ passphrase, image: selectedImage, dev_mode: true });
+      // Wait a moment for Gateway to be ready, then refresh status
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      await refreshGatewayStatus();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to start Gateway');
     } finally {
@@ -143,9 +176,7 @@ export function GatewaySettings() {
     setActionLoading(true);
     try {
       await gateway.stop();
-      toast.success('Gateway stopped');
-      setStatus('stopped');
-      setConfig({});
+      await refreshGatewayStatus();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to stop Gateway');
     } finally {
@@ -157,10 +188,9 @@ export function GatewaySettings() {
     setActionLoading(true);
     try {
       await gatewayClient.restart();
-      toast.success('Gateway restarted');
-      // Wait a moment for Gateway to restart before fetching data
+      // Wait a moment for Gateway to restart before refreshing status
       await new Promise(resolve => setTimeout(resolve, 2000));
-      await fetchGatewayData();
+      await refreshGatewayStatus();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to restart Gateway');
     } finally {
@@ -314,8 +344,16 @@ export function GatewaySettings() {
 
   return (
     <div className="space-y-6">
+      {/* Gateway Server */}
+      <div>
+        <h2 className="text-xl font-semibold mb-1">Gateway Server</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Manage the Hummingbot Gateway Docker container.
+        </p>
+      </div>
+
       {/* Server Info */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
         <div>
           <span className="text-muted-foreground">Status</span>
           <p className="flex items-center gap-2">
@@ -324,26 +362,83 @@ export function GatewaySettings() {
           </p>
         </div>
         <div>
-          <span className="text-muted-foreground">Version</span>
-          <p className="font-mono text-xs sm:text-sm">{version || '—'}</p>
+          <span className="text-muted-foreground">Image</span>
+          <p className="font-mono text-xs sm:text-sm truncate">{containerInfo?.image || '—'}</p>
         </div>
         <div>
-          <span className="text-muted-foreground">Access</span>
-          <p className="font-mono text-xs sm:text-sm">via API proxy</p>
+          <span className="text-muted-foreground">Port</span>
+          <p className="font-mono text-xs sm:text-sm">{containerInfo?.port || '—'}</p>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Container ID</span>
+          <p className="font-mono text-xs sm:text-sm">{containerInfo?.container_id?.slice(0, 12) || '—'}</p>
         </div>
       </div>
 
       {/* Server Controls */}
       {status === 'running' ? (
-        <div className="flex items-center gap-2">
-          <Button size="sm" variant="outline" onClick={handleRestart} disabled={actionLoading}>
-            <RefreshCw size={14} className={cn('mr-1', actionLoading && 'animate-spin')} />
-            Restart
-          </Button>
-          <Button size="sm" variant="destructive" onClick={handleStop} disabled={actionLoading}>
-            <Square size={14} className="mr-1" />
-            Stop
-          </Button>
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={handleRestart} disabled={actionLoading}>
+              <RefreshCw size={14} className={cn('mr-1', actionLoading && 'animate-spin')} />
+              Restart
+            </Button>
+            <Button size="sm" variant="destructive" onClick={handleStop} disabled={actionLoading}>
+              <Square size={14} className="mr-1" />
+              Stop
+            </Button>
+          </div>
+
+          {/* Logs */}
+          <div className="border border-border rounded-lg">
+            <button
+              onClick={() => setLogsOpen(!logsOpen)}
+              className="w-full flex items-center justify-between p-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span className="flex items-center gap-2">
+                <FileText size={14} />
+                Server Logs
+              </span>
+              <div className="flex items-center gap-2">
+                {logsOpen && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 px-2 text-xs"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      fetchLogs();
+                    }}
+                    disabled={logsLoading}
+                  >
+                    <RefreshCw size={12} className={cn('mr-1', logsLoading && 'animate-spin')} />
+                    Refresh
+                  </Button>
+                )}
+                <ChevronDown size={14} className={cn('transition-transform', logsOpen && 'rotate-180')} />
+              </div>
+            </button>
+            {logsOpen && (
+              <div className="border-t border-border">
+                <ScrollArea className="h-64">
+                  <div className="p-3">
+                    {logsLoading && !logs ? (
+                      <div className="flex items-center justify-center h-32">
+                        <Loader2 className="animate-spin text-muted-foreground" size={20} />
+                      </div>
+                    ) : logs ? (
+                      <pre className="font-mono text-xs text-muted-foreground whitespace-pre-wrap break-all leading-relaxed">
+                        {logs}
+                        <div ref={logsEndRef} />
+                      </pre>
+                    ) : (
+                      <p className="text-sm text-muted-foreground text-center py-8">No logs available</p>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
+          </div>
         </div>
       ) : (
         <Card>
@@ -380,8 +475,8 @@ export function GatewaySettings() {
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Switch id="devMode" checked={devMode} onCheckedChange={setDevMode} />
-                <Label htmlFor="devMode" className="cursor-pointer">Dev Mode</Label>
+                <Switch id="devMode" checked={true} disabled />
+                <Label htmlFor="devMode" className="text-muted-foreground">Dev Mode (required)</Label>
               </div>
               <Button onClick={handleStart} disabled={actionLoading || !passphrase.trim()}>
                 {actionLoading ? (
@@ -396,8 +491,23 @@ export function GatewaySettings() {
         </Card>
       )}
 
+      {/* Divider */}
+      <Separator className="-mx-4 md:-mx-6 w-auto my-4" />
+
+      {/* Gateway Configuration */}
+      <div>
+        <h2 className="text-xl font-semibold mb-1">Gateway Configuration</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          Configure API keys, networks, and connectors for DEX trading.
+        </p>
+      </div>
+
       {/* Configuration Tabs (only when running) */}
-      {status === 'running' && (
+      {status !== 'running' ? (
+        <div className="flex items-center justify-center h-32 border border-dashed border-border rounded-lg">
+          <p className="text-sm text-muted-foreground">Start Gateway to view configuration</p>
+        </div>
+      ) : (
         <Tabs defaultValue="apiKeys" className="w-full">
           <TabsList className="w-full bg-transparent border-b border-border rounded-none h-auto p-0 gap-0">
             <TabsTrigger

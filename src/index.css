@@ -2,6 +2,7 @@
 
 /* Light mode (default) */
 :root {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --background: 0 0% 100%;
   --foreground: 240 10% 3.9%;
   --card: 0 0% 100%;
@@ -140,7 +141,10 @@ html, body {
   overflow: hidden;
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
+  font-family: var(--font-sans);
   transition: background-color 0.2s, color 0.2s;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 #root {

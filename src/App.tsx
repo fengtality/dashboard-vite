@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AccountProvider } from './components/account-provider';
+import { GatewayStatusProvider } from './components/gateway-status-provider';
 import Layout from './components/Layout';
 import Home from './pages/Home';
 import TradePage from './pages/TradePage';
@@ -18,6 +19,7 @@ function App() {
   return (
     <BrowserRouter>
       <AccountProvider>
+        <GatewayStatusProvider>
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
@@ -39,6 +41,7 @@ function App() {
             <Route path="settings" element={<AccountPage />} />
           </Route>
         </Routes>
+        </GatewayStatusProvider>
       </AccountProvider>
     </BrowserRouter>
   );

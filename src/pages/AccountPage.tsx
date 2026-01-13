@@ -6,8 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { config } from '@/config';
 import { generateTelegramDeepLink, generateServerName } from '@/lib/deeplink';
 import { useAccount } from '@/components/account-provider';
+import { useTheme, FONT_OPTIONS } from '@/components/theme-provider';
 import { cn } from '@/lib/utils';
-import { Send, Server, Loader2, User, Star, X, Waypoints } from 'lucide-react';
+import { Send, Server, Loader2, Settings2, Star, X, Waypoints } from 'lucide-react';
 import { toast } from 'sonner';
 import { FieldLabel } from '@/components/field-label';
 import { formatConnectorName } from '@/lib/formatting';
@@ -17,7 +18,7 @@ import { GatewaySettings } from '@/components/gateway-settings';
 const PUBLIC_BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'condor_tg_bot';
 
 const sections = [
-  { id: 'account', label: 'Account', icon: User },
+  { id: 'general', label: 'General', icon: Settings2 },
   { id: 'favorites', label: 'Favorites', icon: Star },
   { id: 'gateway', label: 'Gateway', icon: Waypoints },
   { id: 'api-server', label: 'API Server', icon: Server },
@@ -26,9 +27,10 @@ const sections = [
 
 export default function AccountPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeSection = searchParams.get('section') || 'account';
+  const activeSection = searchParams.get('section') || 'general';
 
   const { account, setAccount, accountsList, timezone, setTimezone, favorites, removeFavorite } = useAccount();
+  const { theme, setTheme, font, setFont } = useTheme();
 
   // Common timezones for the selector
   const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -139,8 +141,44 @@ export default function AccountPage() {
 
       {/* Main Content */}
       <div className="flex-1 min-w-0 p-4 md:p-6">
-        {activeSection === 'account' && (
+        {activeSection === 'general' && (
           <div className="space-y-8">
+            <div>
+              <h2 className="text-xl font-semibold mb-1">Theme</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Choose your preferred color theme.
+              </p>
+              <Select value={theme} onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'system')}>
+                <SelectTrigger className="w-full max-w-xs">
+                  <SelectValue placeholder="Select theme" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="light">Light</SelectItem>
+                  <SelectItem value="dark">Dark</SelectItem>
+                  <SelectItem value="system">System</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <h2 className="text-xl font-semibold mb-1">Font</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Choose your preferred font family.
+              </p>
+              <Select value={font} onValueChange={(value) => setFont(value as 'inter' | 'system' | 'mono')}>
+                <SelectTrigger className="w-full max-w-xs">
+                  <SelectValue placeholder="Select font" />
+                </SelectTrigger>
+                <SelectContent>
+                  {FONT_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div>
               <h2 className="text-xl font-semibold mb-1">Trading Account</h2>
               <p className="text-sm text-muted-foreground mb-4">
@@ -272,13 +310,7 @@ export default function AccountPage() {
         )}
 
         {activeSection === 'gateway' && (
-          <div>
-            <h2 className="text-xl font-semibold mb-1">Gateway Server</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              Manage the Hummingbot Gateway server for DEX trading.
-            </p>
-            <GatewaySettings />
-          </div>
+          <GatewaySettings />
         )}
 
         {activeSection === 'api-server' && (

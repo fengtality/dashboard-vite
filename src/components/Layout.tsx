@@ -13,8 +13,8 @@ import {
 } from 'lucide-react';
 import logoLight from '@/assets/condor-logo-trans-light.png';
 import logoDark from '@/assets/condor-logo-trans-dark.png';
-import { gatewayClient } from '@/api/gateway';
 import { accounts } from '@/api/hummingbot-api';
+import { useGatewayStatus } from '@/components/gateway-status-provider';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/theme-provider';
 import { Button } from '@/components/ui/button';
@@ -67,15 +67,15 @@ function MobileNavLink({ to, children, isActive, onClick }: { to: string; childr
 export default function Layout() {
   const location = useLocation();
   const { theme } = useTheme();
+  const { status: gatewayStatus } = useGatewayStatus();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [apiRunning, setApiRunning] = useState<boolean | null>(null);
-  const [gatewayRunning, setGatewayRunning] = useState<boolean | null>(null);
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
   const logo = theme === 'dark' ? logoDark : logoLight;
 
-  // Check API and Gateway status periodically
+  // Check API status periodically
   useEffect(() => {
     async function checkApi() {
       try {
@@ -86,21 +86,8 @@ export default function Layout() {
       }
     }
 
-    async function checkGateway() {
-      try {
-        const response = await gatewayClient.health();
-        setGatewayRunning(response.status === 'ok');
-      } catch {
-        setGatewayRunning(false);
-      }
-    }
-
     checkApi();
-    checkGateway();
-    const interval = setInterval(() => {
-      checkApi();
-      checkGateway();
-    }, 30000); // Check every 30 seconds
+    const interval = setInterval(checkApi, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -250,12 +237,12 @@ export default function Layout() {
             {/* Gateway Status */}
             <div className="flex items-center gap-2">
               <span className="relative flex h-2 w-2">
-                {gatewayRunning ? (
+                {gatewayStatus === 'running' ? (
                   <>
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
                   </>
-                ) : gatewayRunning === false ? (
+                ) : gatewayStatus === 'stopped' ? (
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-muted-foreground"></span>
                 ) : (
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-muted-foreground animate-pulse"></span>

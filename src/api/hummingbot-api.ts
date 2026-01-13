@@ -361,16 +361,25 @@ export const archivedBots = {
 };
 
 // Docker Router
+export interface DockerContainer {
+  id: string;
+  name: string;
+  status: string;
+  image: string;
+}
+
 export const docker = {
   isRunning: () => request<{ is_running: boolean }>('/docker/running'),
   getAvailableImages: (imageName?: string) =>
     request<string[]>(
       `/docker/available-images/${imageName ? `?image_name=${imageName}` : ''}`
     ),
-  getActiveContainers: () =>
-    request<unknown[]>('/docker/active-containers'),
+  getActiveContainers: (nameFilter?: string) =>
+    request<DockerContainer[]>(
+      `/docker/active-containers${nameFilter ? `?name_filter=${nameFilter}` : ''}`
+    ),
   getExitedContainers: () =>
-    request<unknown[]>('/docker/exited-containers'),
+    request<DockerContainer[]>('/docker/exited-containers'),
 };
 
 // Portfolio Router
@@ -736,7 +745,7 @@ export const gateway = {
   stop: () => request<unknown>('/gateway/stop', { method: 'POST' }),
   restart: () => request<unknown>('/gateway/restart', { method: 'POST' }),
   getLogs: (tail?: number) =>
-    request<{ logs: string[] }>(`/gateway/logs${tail ? `?tail=${tail}` : ''}`),
+    request<{ success: boolean; logs: string }>(`/gateway/logs${tail ? `?tail=${tail}` : ''}`),
 
   // Network configuration
   listNetworks: () => request<{ networks: GatewayNetwork[] }>('/gateway/networks'),

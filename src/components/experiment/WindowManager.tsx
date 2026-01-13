@@ -1,5 +1,5 @@
 import { Rnd } from 'react-rnd';
-import { X, Minus, Maximize2, Copy, RotateCcw } from 'lucide-react';
+import { X, Minus, Maximize2, Copy, RotateCcw, LayoutGrid } from 'lucide-react';
 import { useExperiment, getWindowDefaults, type WindowState } from './ExperimentProvider';
 import { cn } from '@/lib/utils';
 import {
@@ -11,14 +11,20 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu';
 
-// Window content components - lazy loaded
+// Window content components
 import { BalancesWindow } from './windows/BalancesWindow';
 import { OrdersWindow } from './windows/OrdersWindow';
 import { TradesWindow } from './windows/TradesWindow';
 import { PositionsWindow } from './windows/PositionsWindow';
 import { PriceChartWindow } from './windows/PriceChartWindow';
 import { OrderBookWindow } from './windows/OrderBookWindow';
-import { TradeActionWindow } from './windows/TradeActionWindow';
+import { OrderDepthWindow } from './windows/OrderDepthWindow';
+import { TradeSpotWindow } from './windows/TradeSpotWindow';
+import { TradePerpWindow } from './windows/TradePerpWindow';
+import { SwapWindow } from './windows/SwapWindow';
+import { AddLiquidityWindow } from './windows/AddLiquidityWindow';
+import { LPPositionsWindow } from './windows/LPPositionsWindow';
+import { TransactionsWindow } from './windows/TransactionsWindow';
 import { KeysWindow } from './windows/KeysWindow';
 import { PlaceholderWindow } from './windows/PlaceholderWindow';
 
@@ -36,16 +42,24 @@ function WindowContent({ window }: { window: WindowState }) {
       return <PriceChartWindow context={window.context} />;
     case 'order-book':
       return <OrderBookWindow context={window.context} />;
-    case 'trade-action':
-      return <TradeActionWindow context={window.context} />;
+    case 'order-depth':
+      return <OrderDepthWindow context={window.context} />;
+    case 'trade-spot':
+      return <TradeSpotWindow context={window.context} />;
+    case 'trade-perp':
+      return <TradePerpWindow context={window.context} />;
+    case 'swap':
+      return <SwapWindow context={window.context} />;
+    case 'add-liquidity':
+      return <AddLiquidityWindow context={window.context} />;
+    case 'lp-positions':
+      return <LPPositionsWindow context={window.context} />;
+    case 'transactions':
+      return <TransactionsWindow context={window.context} />;
     case 'keys':
       return <KeysWindow />;
-    case 'order-depth':
-      return <PlaceholderWindow title="Order Depth" description="Depth chart visualization coming soon" />;
     case 'run-bot':
       return <PlaceholderWindow title="Run Bot" description="Bot deployment interface coming soon" />;
-    case 'lp-positions':
-      return <PlaceholderWindow title="LP Positions" description="AMM LP positions coming soon" />;
     default:
       return <PlaceholderWindow title="Unknown" description="Unknown window type" />;
   }
@@ -58,6 +72,11 @@ interface DraggableWindowProps {
 function DraggableWindow({ window }: DraggableWindowProps) {
   const { updateWindow, removeWindow, bringToFront, minimizeWindow, addWindow } = useExperiment();
   const defaults = getWindowDefaults(window.type);
+
+  // Skip windows with unknown types (e.g., old windows from localStorage)
+  if (!defaults) {
+    return null;
+  }
 
   if (window.minimized) {
     return null;
@@ -191,10 +210,26 @@ function DraggableWindow({ window }: DraggableWindowProps) {
 }
 
 export function WindowManager() {
-  const { windows } = useExperiment();
+  const { windows, selectedConnector, selectedPair } = useExperiment();
+
+  // Show empty state when no connector or pair selected
+  const showEmptyState = !selectedConnector || !selectedPair;
 
   return (
     <div className="relative w-full h-full overflow-hidden">
+      {showEmptyState && windows.length === 0 && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
+          <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+            <LayoutGrid className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <h3 className="text-lg font-medium mb-2">No Market Selected</h3>
+          <p className="text-sm text-muted-foreground max-w-md">
+            {!selectedConnector
+              ? 'Select an exchange or network from the toolbar above to get started.'
+              : 'Select a trading pair to open windows and start trading.'}
+          </p>
+        </div>
+      )}
       {windows.map(window => (
         <DraggableWindow key={window.id} window={window} />
       ))}

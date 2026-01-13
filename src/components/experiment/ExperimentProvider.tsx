@@ -1,16 +1,21 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { isPerpetualConnector } from '@/lib/connectors';
 
 export type WindowType =
   | 'price-chart'
   | 'order-book'
   | 'order-depth'
-  | 'trade-action'
+  | 'trade-spot'
+  | 'trade-perp'
+  | 'swap'
+  | 'add-liquidity'
   | 'run-bot'
   | 'balances'
   | 'orders'
   | 'trades'
   | 'positions'
   | 'lp-positions'
+  | 'transactions'
   | 'keys';
 
 export type ConnectorType = 'hummingbot' | 'gateway';
@@ -85,13 +90,17 @@ const WINDOW_DEFAULTS: Record<WindowType, { width: number; height: number; title
   'price-chart': { width: 600, height: 400, title: 'Price Chart', minWidth: 400, minHeight: 300 },
   'order-book': { width: 320, height: 450, title: 'Order Book', minWidth: 280, minHeight: 300 },
   'order-depth': { width: 500, height: 300, title: 'Order Depth', minWidth: 350, minHeight: 200 },
-  'trade-action': { width: 350, height: 400, title: 'Trade', minWidth: 300, minHeight: 350 },
+  'trade-spot': { width: 350, height: 420, title: 'Trade Spot', minWidth: 300, minHeight: 380 },
+  'trade-perp': { width: 380, height: 520, title: 'Trade Perp', minWidth: 320, minHeight: 450 },
+  'swap': { width: 380, height: 450, title: 'Swap', minWidth: 320, minHeight: 380 },
+  'add-liquidity': { width: 400, height: 500, title: 'Add Liquidity', minWidth: 350, minHeight: 420 },
   'run-bot': { width: 400, height: 500, title: 'Run Bot', minWidth: 350, minHeight: 400 },
   'balances': { width: 450, height: 350, title: 'Balances', minWidth: 350, minHeight: 250 },
   'orders': { width: 600, height: 350, title: 'Orders', minWidth: 450, minHeight: 250 },
   'trades': { width: 550, height: 350, title: 'Trades', minWidth: 400, minHeight: 250 },
   'positions': { width: 600, height: 300, title: 'Positions', minWidth: 450, minHeight: 200 },
-  'lp-positions': { width: 650, height: 350, title: 'LP Positions', minWidth: 500, minHeight: 250 },
+  'lp-positions': { width: 700, height: 400, title: 'LP Positions', minWidth: 550, minHeight: 300 },
+  'transactions': { width: 650, height: 400, title: 'Transactions', minWidth: 500, minHeight: 300 },
   'keys': { width: 500, height: 400, title: 'API Keys', minWidth: 400, minHeight: 300 },
 };
 
@@ -102,36 +111,48 @@ export function getWindowDefaults(type: WindowType) {
 // Default layouts
 const DEFAULT_LAYOUTS: Layout[] = [
   {
-    id: 'trading',
-    name: 'Trading',
+    id: 'trading-spot',
+    name: 'Spot Trading',
     windows: [
       { type: 'price-chart', x: 10, y: 10, width: 650, height: 400 },
       { type: 'order-book', x: 670, y: 10, width: 320, height: 400 },
-      { type: 'trade-action', x: 670, y: 420, width: 320, height: 350 },
+      { type: 'trade-spot', x: 670, y: 420, width: 320, height: 350 },
       { type: 'balances', x: 10, y: 420, width: 450, height: 300 },
     ],
   },
   {
-    id: 'monitoring',
-    name: 'Monitoring',
+    id: 'trading-perp',
+    name: 'Perp Trading',
     windows: [
-      { type: 'orders', x: 10, y: 10, width: 600, height: 300 },
-      { type: 'trades', x: 620, y: 10, width: 550, height: 300 },
-      { type: 'positions', x: 10, y: 320, width: 600, height: 280 },
-      { type: 'balances', x: 620, y: 320, width: 450, height: 280 },
+      { type: 'price-chart', x: 10, y: 10, width: 650, height: 400 },
+      { type: 'order-book', x: 670, y: 10, width: 320, height: 400 },
+      { type: 'trade-perp', x: 670, y: 420, width: 350, height: 450 },
+      { type: 'positions', x: 10, y: 420, width: 450, height: 300 },
     ],
   },
   {
-    id: 'chart-focus',
-    name: 'Chart Focus',
+    id: 'trading-amm',
+    name: 'AMM Trading',
     windows: [
-      { type: 'price-chart', x: 10, y: 10, width: 800, height: 500 },
-      { type: 'order-book', x: 820, y: 10, width: 320, height: 500 },
+      { type: 'swap', x: 10, y: 10, width: 380, height: 450 },
+      { type: 'add-liquidity', x: 400, y: 10, width: 400, height: 500 },
+      { type: 'lp-positions', x: 10, y: 470, width: 700, height: 350 },
     ],
   },
 ];
 
 let windowCounter = 0;
+
+// Helper to get default layout based on connector type
+function getDefaultLayoutForConnector(connector: string, connectorType: ConnectorType): Layout | undefined {
+  if (connectorType === 'gateway') {
+    return DEFAULT_LAYOUTS.find(l => l.id === 'trading-amm');
+  }
+  if (isPerpetualConnector(connector)) {
+    return DEFAULT_LAYOUTS.find(l => l.id === 'trading-perp');
+  }
+  return DEFAULT_LAYOUTS.find(l => l.id === 'trading-spot');
+}
 
 export function ExperimentProvider({ children }: { children: ReactNode }) {
   // Market selection state
@@ -175,8 +196,10 @@ export function ExperimentProvider({ children }: { children: ReactNode }) {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          windowCounter = Math.max(0, ...parsed.map((w: WindowState) => parseInt(w.id.split('-')[1] || '0')));
-          return parsed;
+          // Filter out windows with unknown types (e.g., old 'trade-action')
+          const validWindows = parsed.filter((w: WindowState) => w.type in WINDOW_DEFAULTS);
+          windowCounter = Math.max(0, ...validWindows.map((w: WindowState) => parseInt(w.id.split('-')[1] || '0')));
+          return validWindows;
         }
       }
     } catch { /* ignore */ }
@@ -235,9 +258,10 @@ export function ExperimentProvider({ children }: { children: ReactNode }) {
 
     // If no windows are open and a pair is selected, apply the user's layout or default
     setWindows(prev => {
-      if (prev.length === 0 && pair) {
-        // Use user's saved layout, or fall back to default trading layout
-        const layoutWindows = userLayout || DEFAULT_LAYOUTS.find(l => l.id === 'trading')?.windows;
+      if (prev.length === 0 && pair && selectedConnector) {
+        // Use user's saved layout, or fall back to default layout for connector type
+        const defaultLayout = getDefaultLayoutForConnector(selectedConnector, selectedConnectorType);
+        const layoutWindows = userLayout || defaultLayout?.windows;
         if (layoutWindows) {
           windowCounter = 0;
           const context: WindowContext = {
@@ -389,15 +413,17 @@ export function ExperimentProvider({ children }: { children: ReactNode }) {
   }, [windows]);
 
   const resetLayout = useCallback(() => {
-    // Clear user's saved layout and apply default
+    // Clear user's saved layout and apply default based on connector type
     setUserLayout(null);
 
-    // Apply default trading layout
-    const tradingLayout = DEFAULT_LAYOUTS.find(l => l.id === 'trading');
-    if (tradingLayout) {
+    // Apply default layout for current connector type
+    const defaultLayout = selectedConnector
+      ? getDefaultLayoutForConnector(selectedConnector, selectedConnectorType)
+      : DEFAULT_LAYOUTS.find(l => l.id === 'trading-spot');
+    if (defaultLayout) {
       windowCounter = 0;
       const context = getCurrentContext();
-      const newWindows: WindowState[] = tradingLayout.windows.map((lw, index) => {
+      const newWindows: WindowState[] = defaultLayout.windows.map((lw, index) => {
         windowCounter++;
         const defaults = WINDOW_DEFAULTS[lw.type];
         return {
@@ -415,7 +441,7 @@ export function ExperimentProvider({ children }: { children: ReactNode }) {
       });
       setWindows(newWindows);
     }
-  }, [getCurrentContext]);
+  }, [getCurrentContext, selectedConnector, selectedConnectorType]);
 
   return (
     <ExperimentContext.Provider value={{

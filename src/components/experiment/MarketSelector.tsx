@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Loader2, Key, Wallet } from 'lucide-react';
-import { connectors as connectorsApi, accounts } from '@/api/hummingbot-api';
+import { Loader2 } from 'lucide-react';
+import { connectors as connectorsApi } from '@/api/hummingbot-api';
 import { gatewayClient } from '@/api/gateway';
-import type { WalletInfo } from '@/api/gateway';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -32,14 +31,12 @@ export function MarketSelector() {
     setSelectedConnector,
     setSelectedPair,
   } = useExperiment();
-  const { favorites, account } = useAccount();
+  const { favorites } = useAccount();
 
   const [connectorOptions, setConnectorOptions] = useState<ConnectorOption[]>([]);
   const [pairOptions, setPairOptions] = useState<ComboboxOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingPairs, setLoadingPairs] = useState(false);
-  const [credentials, setCredentials] = useState<string[]>([]);
-  const [wallets, setWallets] = useState<WalletInfo[]>([]);
 
   // Fetch connectors from both Hummingbot and Gateway
   useEffect(() => {
@@ -91,38 +88,6 @@ export function MarketSelector() {
     }
 
     fetchConnectors();
-  }, []);
-
-  // Fetch credentials for the account
-  useEffect(() => {
-    if (!account) {
-      setCredentials([]);
-      return;
-    }
-    async function fetchCredentials() {
-      try {
-        const creds = await accounts.getCredentials(account);
-        setCredentials(creds);
-      } catch (err) {
-        console.error('Failed to fetch credentials:', err);
-        setCredentials([]);
-      }
-    }
-    fetchCredentials();
-  }, [account]);
-
-  // Fetch wallets for Gateway
-  useEffect(() => {
-    async function fetchWallets() {
-      try {
-        const walletList = await gatewayClient.wallet.list();
-        setWallets(walletList);
-      } catch (err) {
-        console.error('Failed to fetch wallets:', err);
-        setWallets([]);
-      }
-    }
-    fetchWallets();
   }, []);
 
   // Fetch trading pairs when connector changes
@@ -213,36 +178,6 @@ export function MarketSelector() {
     setSelectedPair(pair);
   };
 
-  // Get the active credential or wallet for the selected connector
-  const getActiveKeyOrWallet = (): { type: 'key' | 'wallet'; value: string } | null => {
-    if (!selectedConnector) return null;
-
-    if (selectedConnectorType === 'gateway') {
-      // For gateway, find the default wallet for the chain
-      const chain = selectedConnector.split('-')[0]; // e.g., "solana" from "solana-mainnet-beta"
-      const defaultWallet = wallets.find(w => w.chain === chain && w.isDefault);
-      if (defaultWallet) {
-        // Shorten address: first 4 + last 4 chars
-        const short = `${defaultWallet.address.slice(0, 6)}...${defaultWallet.address.slice(-4)}`;
-        return { type: 'wallet', value: short };
-      }
-    } else {
-      // For hummingbot, check if we have a credential for this connector
-      // Credentials format is typically "connector_name" matching the connector
-      const baseConnector = selectedConnector.replace('_perpetual', '');
-      const hasCredential = credentials.some(c =>
-        c.toLowerCase().includes(baseConnector.toLowerCase()) ||
-        baseConnector.toLowerCase().includes(c.toLowerCase())
-      );
-      if (hasCredential) {
-        return { type: 'key', value: 'API Key' };
-      }
-    }
-    return null;
-  };
-
-  const activeKeyOrWallet = getActiveKeyOrWallet();
-
   return (
     <div className="flex items-center gap-3 w-full">
       <Combobox
@@ -295,25 +230,6 @@ export function MarketSelector() {
         </>
       )}
 
-      {/* Spacer to push wallet/key to right */}
-      <div className="flex-1" />
-
-      {/* Active wallet or API key indicator */}
-      {activeKeyOrWallet && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground shrink-0">
-          {activeKeyOrWallet.type === 'wallet' ? (
-            <>
-              <Wallet className="h-4 w-4" />
-              <span className="font-mono text-xs">{activeKeyOrWallet.value}</span>
-            </>
-          ) : (
-            <>
-              <Key className="h-4 w-4" />
-              <span className="text-xs">{activeKeyOrWallet.value}</span>
-            </>
-          )}
-        </div>
-      )}
     </div>
   );
 }

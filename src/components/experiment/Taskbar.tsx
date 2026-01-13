@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Popover,
   PopoverContent,
@@ -14,6 +14,7 @@ import {
   History,
   TrendingUp,
   ArrowRightLeft,
+  ArrowDownUp,
   Bot,
   Key,
   LayoutGrid,
@@ -23,29 +24,52 @@ import {
   Menu,
   RotateCcw,
   Check,
+  Droplets,
+  Receipt,
 } from 'lucide-react';
+import { isPerpetualConnector } from '@/lib/connectors';
 
 interface WindowOption {
   type: WindowType;
   label: string;
   description: string;
-  gatewayLabel?: string;
-  gatewayDescription?: string;
   icon: React.ComponentType<{ className?: string }>;
+  // Which connector types this window is available for
+  connectorTypes: ('spot' | 'perp' | 'gateway' | 'all')[];
 }
 
-// Windows in same order as desktop icons
-const allWindows: WindowOption[] = [
-  { type: 'price-chart', label: 'Price Chart', description: 'View candlestick charts and price history', icon: BarChart3 },
-  { type: 'order-book', label: 'Order Book', description: 'Real-time bid/ask order book', icon: BookOpen },
-  { type: 'order-depth', label: 'Order Depth', description: 'Visualize market depth', icon: AreaChart },
-  { type: 'trade-action', label: 'Trade', description: 'Place buy and sell orders', icon: ArrowRightLeft },
-  { type: 'run-bot', label: 'Run Bot', description: 'Deploy and manage trading bots', icon: Bot },
-  { type: 'balances', label: 'Balances', description: 'View account token balances', icon: Wallet },
-  { type: 'orders', label: 'Orders', description: 'Active and historical orders', icon: ClipboardList },
-  { type: 'trades', label: 'Trade History', description: 'View past trade executions', icon: History },
-  { type: 'positions', label: 'Positions', description: 'Perpetual positions', gatewayLabel: 'LP Positions', gatewayDescription: 'AMM liquidity positions', icon: TrendingUp },
-  { type: 'keys', label: 'API Keys', description: 'Manage exchange credentials', icon: Key },
+// All windows with their availability by connector type
+const ALL_WINDOWS: WindowOption[] = [
+  // Settings - always available
+  { type: 'keys', label: 'API Keys', description: 'Manage exchange credentials', icon: Key, connectorTypes: ['all'] },
+
+  // Market Data - available for CEX connectors
+  { type: 'price-chart', label: 'Price Chart', description: 'View candlestick charts and price history', icon: BarChart3, connectorTypes: ['spot', 'perp'] },
+  { type: 'order-book', label: 'Order Book', description: 'Real-time bid/ask order book', icon: BookOpen, connectorTypes: ['spot', 'perp'] },
+  { type: 'order-depth', label: 'Order Depth', description: 'Visualize market depth', icon: AreaChart, connectorTypes: ['spot', 'perp'] },
+
+  // Trading - Spot CEX
+  { type: 'trade-spot', label: 'Trade Spot', description: 'Place spot buy and sell orders', icon: ArrowRightLeft, connectorTypes: ['spot'] },
+
+  // Trading - Perp CEX
+  { type: 'trade-perp', label: 'Trade Perp', description: 'Trade perpetuals with leverage', icon: ArrowRightLeft, connectorTypes: ['perp'] },
+
+  // Trading - Gateway/DEX
+  { type: 'swap', label: 'Swap', description: 'Swap tokens on DEX', icon: ArrowDownUp, connectorTypes: ['gateway'] },
+  { type: 'add-liquidity', label: 'Add Liquidity', description: 'Provide liquidity to pools', icon: Droplets, connectorTypes: ['gateway'] },
+
+  // Bot
+  { type: 'run-bot', label: 'Run Bot', description: 'Deploy and manage trading bots', icon: Bot, connectorTypes: ['spot', 'perp'] },
+
+  // Portfolio - CEX
+  { type: 'balances', label: 'Balances', description: 'View account token balances', icon: Wallet, connectorTypes: ['all'] },
+  { type: 'orders', label: 'Orders', description: 'Active and historical orders', icon: ClipboardList, connectorTypes: ['spot', 'perp'] },
+  { type: 'trades', label: 'Trade History', description: 'View past trade executions', icon: History, connectorTypes: ['spot', 'perp'] },
+  { type: 'positions', label: 'Positions', description: 'Perpetual positions', icon: TrendingUp, connectorTypes: ['perp'] },
+
+  // Portfolio - Gateway
+  { type: 'lp-positions', label: 'LP Positions', description: 'AMM liquidity positions', icon: TrendingUp, connectorTypes: ['gateway'] },
+  { type: 'transactions', label: 'Transactions', description: 'DEX swap history', icon: Receipt, connectorTypes: ['gateway'] },
 ];
 
 export function Taskbar() {
@@ -57,30 +81,42 @@ export function Taskbar() {
     resetLayout,
     bringToFront,
     restoreWindow,
+    selectedConnector,
     selectedConnectorType,
   } = useExperiment();
 
   const [startOpen, setStartOpen] = useState(false);
 
+  // Determine the effective connector category
+  const connectorCategory = useMemo((): 'spot' | 'perp' | 'gateway' | null => {
+    if (!selectedConnector) return null;
+    if (selectedConnectorType === 'gateway') return 'gateway';
+    // Check if it's a perpetual connector
+    if (isPerpetualConnector(selectedConnector)) return 'perp';
+    return 'spot';
+  }, [selectedConnector, selectedConnectorType]);
+
+  // Check if a window type is available for current connector
+  const isWindowAvailable = (opt: WindowOption): boolean => {
+    if (opt.connectorTypes.includes('all')) return true;
+    if (!connectorCategory) return false;
+    return opt.connectorTypes.includes(connectorCategory);
+  };
+
   const handleOpenWindow = (type: WindowType) => {
-    // For positions, open the appropriate window type based on connector
-    if (type === 'positions' && selectedConnectorType === 'gateway') {
-      addWindow('lp-positions');
-    } else {
-      addWindow(type);
-    }
+    addWindow(type);
     setStartOpen(false);
   };
 
-  const isGateway = selectedConnectorType === 'gateway';
-
   // Check if a window of this type is open
   const isWindowOpen = (type: WindowType) => {
-    // For positions, check both positions and lp-positions
-    if (type === 'positions') {
-      return windows.some(w => w.type === 'positions' || w.type === 'lp-positions');
-    }
     return windows.some(w => w.type === type);
+  };
+
+  // Find icon for a window type (for taskbar buttons)
+  const getWindowIcon = (type: WindowType) => {
+    const opt = ALL_WINDOWS.find(w => w.type === type);
+    return opt?.icon || LayoutGrid;
   };
 
   return (
@@ -96,15 +132,19 @@ export function Taskbar() {
         <PopoverContent className="w-72 p-0" align="start" side="top">
           <div className="p-1">
             {/* Windows as vertical list */}
-            <div className="space-y-0.5">
-              {allWindows.map((opt) => {
-                const label = isGateway && opt.gatewayLabel ? opt.gatewayLabel : opt.label;
-                const description = isGateway && opt.gatewayDescription ? opt.gatewayDescription : opt.description;
+            <div className="space-y-0.5 max-h-[400px] overflow-y-auto">
+              {ALL_WINDOWS.map((opt) => {
+                const available = isWindowAvailable(opt);
                 return (
                   <button
                     key={opt.type}
-                    className="w-full flex items-center gap-2 px-2 py-2 rounded-md hover:bg-accent text-left transition-colors"
-                    onClick={() => handleOpenWindow(opt.type)}
+                    className={`w-full flex items-center gap-2 px-2 py-2 rounded-md text-left transition-colors ${
+                      available
+                        ? 'hover:bg-accent cursor-pointer'
+                        : 'opacity-40 cursor-not-allowed'
+                    }`}
+                    onClick={() => available && handleOpenWindow(opt.type)}
+                    disabled={!available}
                   >
                     {/* Check indicator - shows when window is open */}
                     <div className="w-4 flex items-center justify-center shrink-0">
@@ -114,8 +154,8 @@ export function Taskbar() {
                       <opt.icon className="h-4 w-4 text-muted-foreground" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{label}</div>
-                      <div className="text-xs text-muted-foreground truncate">{description}</div>
+                      <div className="text-sm font-medium truncate">{opt.label}</div>
+                      <div className="text-xs text-muted-foreground truncate">{opt.description}</div>
                     </div>
                   </button>
                 );
@@ -175,8 +215,7 @@ export function Taskbar() {
       {/* Open Windows (taskbar buttons) */}
       <div className="flex-1 flex items-center gap-1 overflow-x-auto">
         {windows.map((win) => {
-          const opt = allWindows.find(w => w.type === win.type);
-          const Icon = opt?.icon || LayoutGrid;
+          const Icon = getWindowIcon(win.type);
           return (
             <Button
               key={win.id}

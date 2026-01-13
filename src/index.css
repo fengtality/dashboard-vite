@@ -9,8 +9,8 @@
   --card-foreground: 240 10% 3.9%;
   --popover: 0 0% 100%;
   --popover-foreground: 240 10% 3.9%;
-  --primary: 183 100% 37%;
-  --primary-foreground: 0 0% 100%;
+  --primary: 40 95% 55%;
+  --primary-foreground: 0 0% 0%;
   --secondary: 240 4.8% 95.9%;
   --secondary-foreground: 240 5.9% 10%;
   --muted: 240 4.8% 95.9%;
@@ -21,7 +21,7 @@
   --destructive-foreground: 0 0% 98%;
   --border: 240 6% 82%;
   --input: 240 6% 82%;
-  --ring: 183 100% 37%;
+  --ring: 40 95% 55%;
   --radius: 0.5rem;
 
   /* Semantic colors - for consistent theming */
@@ -53,7 +53,7 @@
   --card-foreground: 0 0% 98%;
   --popover: 240 10% 3.9%;
   --popover-foreground: 0 0% 98%;
-  --primary: 165 100% 69%;
+  --primary: 40 95% 55%;
   --primary-foreground: 240 10% 10%;
   --secondary: 240 3.7% 15.9%;
   --secondary-foreground: 0 0% 98%;
@@ -65,7 +65,7 @@
   --destructive-foreground: 0 0% 98%;
   --border: 240 4% 26%;
   --input: 240 4% 26%;
-  --ring: 165 100% 69%;
+  --ring: 40 95% 55%;
 
   /* Semantic colors - dark mode adjustments */
   --positive: 142 71% 45%;           /* Keep same green, good contrast */

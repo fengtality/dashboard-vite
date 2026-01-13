@@ -2,550 +2,281 @@
 
 ## Executive Summary
 
-This document outlines a redesign of the Gateway integration architecture to simplify the dashboard's API interactions. The goal is to consolidate all dashboard API calls through a single Hummingbot Backend API, with Gateway serving as **blockchain middleware** rather than a user-facing server.
+This document specifies how to restructure the Hummingbot API and Dashboard to simplify Gateway integration.
 
-**Key Principle**: Gateway's job is to handle the complex parts—RPC node connections, DEX SDK translations, wallet key management, and transaction signing. The API and Dashboard handle the simpler application-level concerns—data persistence, user management, UI presentation.
+**Goal**: Dashboard calls only the Hummingbot API. API handles two types of requests:
+1. **Native endpoints** - implemented directly in API (accounts, bots, CEX trading, market data)
+2. **Gateway endpoints** - forwarded to Gateway with identical schemas (wallets, chains, DEX trading)
 
----
-
-## Problem Statement
-
-### Current Architecture Issues
-
-The dashboard currently maintains **two separate API clients**:
-
-```
-┌─────────────┐     ┌─────────────────────┐
-│             │────▶│ Hummingbot API      │  (CEX, bots, accounts)
-│  Dashboard  │     │ localhost:8000      │
-│             │────▶│ Gateway             │  (DEX, wallets, chains)
-└─────────────┘     │ localhost:15888     │
-                    └─────────────────────┘
-```
-
-**Problems:**
-
-1. **Dual Client Maintenance**: Dashboard maintains two API clients (`src/api/hummingbot-api.ts` and `src/api/gateway/`) with different patterns, error handling, and authentication.
-
-2. **CORS Complexity**: Requires separate Vite proxy configurations for both `/api` and `/gateway` endpoints.
-
-3. **Inconsistent Data Models**: Gateway returns chain-grouped data (e.g., wallets grouped by chain) while the API uses flat structures.
-
-4. **Split Configuration**: Some configs live in Gateway (`defaultWallet`), others in the API database, creating confusion about source of truth.
-
-5. **Deployment Complexity**: Users must manage two services with different lifecycles, ports, and configurations.
-
-6. **Authentication Inconsistency**: API uses basic auth while Gateway uses API keys, requiring different auth handling.
+**Key Terms**:
+- **Expose**: Add endpoint to API's Swagger UI / OpenAPI spec
+- **Forward**: Route request to Gateway and return response unchanged
+- **Schema**: Request/response format - API uses Gateway's schemas exactly, no transformation
 
 ---
 
-## Proposed Architecture
-
-### Single API Entry Point
+## Architecture Overview
 
 ```
 ┌─────────────┐     ┌─────────────────────┐     ┌─────────────┐
 │             │     │                     │     │             │
 │  Dashboard  │────▶│  Hummingbot API     │────▶│  Gateway    │
-│             │     │  localhost:8000     │     │  (middleware)│
+│             │     │  localhost:8000     │     │  (internal) │
 └─────────────┘     └─────────────────────┘     └─────────────┘
                               │                        │
                               ▼                        ▼
                     ┌─────────────────┐     ┌─────────────────┐
-                    │ External APIs   │     │ Blockchain      │
-                    │ - CoinGecko     │     │ - RPC Nodes     │
-                    │ - CEX APIs      │     │ - DEX APIs/SDKs │
+                    │ CoinGecko       │     │ Blockchain      │
+                    │ - prices        │     │ - RPC nodes     │
+                    │ - tokens        │     │ - DEX SDKs      │
+                    │ - pools         │     │ - wallets       │
                     └─────────────────┘     └─────────────────┘
 ```
 
-**Benefits:**
-- Single API client in dashboard
-- Unified authentication
-- Gateway handles the complex parts: node connections, DEX SDK translations, wallet signing
-- API handles the simple parts: data persistence, user management, orchestration
-- Clear separation: API = application logic, Gateway = blockchain middleware
+**Responsibilities**:
+- **Gateway**: Complex blockchain operations (RPC nodes, DEX SDKs, wallet signing, transaction building)
+- **API**: Application logic (user management, data persistence, CoinGecko integration, request routing)
+- **Dashboard**: UI only, calls API exclusively
 
 ---
 
-## Gateway Role Definition
+## What Implementers Need to Do
 
-### What Gateway Should Do (Core Focus)
+### 1. API: Expose and Forward Gateway Endpoints
 
-| Capability | Description |
-|------------|-------------|
-| **Address-First Schemas** | All operations keyed by blockchain address, not symbols or internal IDs. API resolves symbols via CoinGecko before calling Gateway. |
-| **Blockchain Reads** | Read balances, positions, transactions via RPC nodes |
-| **Blockchain Writes** | Submit transactions to blockchains via nodes |
-| **DEX Translation** | Convert DEX APIs/SDKs/IDLs to standard REST endpoints |
-| **Wallet Management** | Store/manage private keys, support hardware wallets |
-| **Node Configuration** | Manage RPC endpoints, failover, rate limits |
-| **DEX Configuration** | Store DEX-specific settings (Jupiter API key, slippage) |
+**Action**: Create routes in API that forward requests to Gateway. Use **identical request/response schemas** as Gateway.
 
-### What Dashboard/API Should Implement Independently
+| API Endpoint | Forwards To | Gateway Docs |
+|--------------|-------------|--------------|
+| `GET /api/gateway/config` | `GET /config` | `localhost:15888/docs` |
+| `* /api/gateway/wallet/*` | `* /wallet/*` | `localhost:15888/docs` |
+| `* /api/gateway/chain/solana/*` | `* /chain/solana/*` | `localhost:15888/docs` |
+| `* /api/gateway/chain/ethereum/*` | `* /chain/ethereum/*` | `localhost:15888/docs` |
+| `* /api/gateway/trading/swap/*` | `* /trading/swap/*` | `localhost:15888/docs` |
+| `* /api/gateway/trading/clmm/*` | `* /trading/clmm/*` | `localhost:15888/docs` |
+| `* /api/gateway/trading/amm/*` | `* /trading/amm/*` | `localhost:15888/docs` |
 
-These capabilities exist in Gateway for Hummingbot Client, but Dashboard/API should use **CoinGecko as a unified data provider**:
-
-| Capability | Gateway (for Hummingbot Client) | API (for Dashboard) |
-|------------|--------------------------------|---------------------|
-| Token Data | `/tokens/*` - trading-focused lists | `/market-data/tokens` - CoinGecko registry |
-| Pool Data | `/pools/*` - strategy discovery | `/market-data/pools` - CoinGecko pool stats |
-| Price Data | Internal pricing for trades | Rate Oracle with CoinGecko ([PR #106](https://github.com/hummingbot/hummingbot-api/pull/106)) |
-| Server Config | Logging, ports, infrastructure | API has its own config |
-
-> **Why CoinGecko?** CoinGecko is essential for **symbol-to-address resolution**. Users search by symbol (e.g., "SOL", "USDC") or trading pair (e.g., "SOL/USDC"), but all API calls to Gateway use blockchain addresses. CoinGecko provides the lookup service to convert symbols to token addresses and pairs to pool addresses, plus unified token metadata, logos, prices, and pool statistics.
-
-> **Address-First Flow**:
-> - **Token**: User searches "SOL" → CoinGecko returns `So11111111111111111111111111111111111111112` → Gateway uses address
-> - **Pool**: User searches "SOL/USDC" → CoinGecko returns pool address → Gateway uses address for LP operations
-
-### Summary: What to Use from Gateway vs CoinGecko
-
-| Need | Source | API Endpoint | Gateway Endpoint |
-|------|--------|--------------|------------------|
-| Gateway config | Gateway (proxy) | `/api/gateway/config` | `/config` |
-| Wallet operations | Gateway (proxy) | `/api/gateway/wallet/*` | `/wallet/*` |
-| Chain status/balances | Gateway (proxy) | `/api/gateway/chain/*` | `/chain/solana`, `/chain/ethereum` |
-| DEX swaps | Gateway (proxy) | `/api/gateway/trading/swap` | `/trading/swap` |
-| CLMM positions | Gateway (proxy) | `/api/gateway/trading/clmm` | `/trading/clmm` |
-| AMM operations | Gateway (proxy) | `/api/gateway/trading/amm` | `/trading/amm` |
-| Token prices | CoinGecko | `/api/market-data/prices` | — |
-| Token metadata | CoinGecko | `/api/market-data/tokens` | — |
-| Pool statistics | CoinGecko | `/api/market-data/pools` | — |
-
----
-
-## API Responsibility Matrix
-
-### Hummingbot Backend API (Dashboard-Facing)
-
-```
-┌────────────────────────────────────────────────────────────────┐
-│                    Hummingbot Backend API                      │
-├────────────────────────────────────────────────────────────────┤
-│  Native Endpoints (Direct Implementation)                      │
-│  ├── /accounts/*        - Account management                   │
-│  ├── /connectors/*      - CEX connector configs                │
-│  ├── /bots/*            - Bot orchestration                    │
-│  ├── /trading/*         - CEX order management                 │
-│  ├── /portfolio/*       - Portfolio tracking                   │
-│  ├── /strategies/*      - Strategy configs                     │
-│  ├── /market-data/*     - CoinGecko: prices, tokens, pools     │
-│  └── /docker/*          - Container management                 │
-├────────────────────────────────────────────────────────────────┤
-│  Proxied to Gateway (Same Schema - No Rewriting)               │
-│  ├── /gateway/config    → Gateway /config                      │
-│  ├── /gateway/wallet/*  → Gateway /wallet/*                    │
-│  ├── /gateway/chain/*   → Gateway /chain/solana, /chain/ethereum│
-│  ├── /gateway/trading/swap → Gateway /trading/swap             │
-│  ├── /gateway/trading/clmm → Gateway /trading/clmm             │
-│  └── /gateway/trading/amm  → Gateway /trading/amm              │
-└────────────────────────────────────────────────────────────────┘
-```
-
-> **Market Data**: Prices, tokens, and pools are provided by CoinGecko as a unified data service—not from Gateway. Gateway's token/pool endpoints exist for Hummingbot Client trading but are not suitable for Dashboard display.
-
-> **Gateway Proxy Rules**:
-> - "Proxy" means: expose Gateway endpoints in API's Swagger UI and API reference, using **identical request/response schemas**
-> - API does NOT transform data or create different schemas—Gateway schemas are the source of truth
-> - API should NOT call connector-specific endpoints (e.g., `/connectors/orca/clmm/fetch-pools`)
-> - See Gateway docs at `localhost:15888/docs` for canonical schemas
-
-### Gateway (Blockchain Middleware)
-
-Gateway handles the **complex blockchain interactions** that require specialized knowledge:
-
-```
-┌────────────────────────────────────────────────────────────────┐
-│                    Gateway (Middleware)                        │
-├────────────────────────────────────────────────────────────────┤
-│  Complex: Blockchain Operations                                │
-│  ├── Wallet key storage & transaction signing                  │
-│  ├── Transaction building (chain-specific formats)             │
-│  ├── Transaction submission & confirmation                     │
-│  ├── Balance queries via RPC nodes                             │
-│  └── Hardware wallet integration                               │
-├────────────────────────────────────────────────────────────────┤
-│  Complex: DEX SDK/API Translation                              │
-│  ├── Jupiter SDK (Solana swaps, routing)                       │
-│  ├── Raydium SDK (CLMM positions, AMM pools)                   │
-│  ├── Orca SDK (Whirlpool positions)                            │
-│  ├── Uniswap SDK (EVM swaps, LP positions)                     │
-│  └── [Other DEX connectors with complex SDKs]                  │
-├────────────────────────────────────────────────────────────────┤
-│  Configuration (Blockchain Infrastructure)                     │
-│  ├── RPC node endpoints & failover                             │
-│  ├── DEX-specific settings (API keys, slippage)                │
-│  └── Default wallets per chain                                 │
-├────────────────────────────────────────────────────────────────┤
-│  Kept for Hummingbot Client (NOT used by Dashboard/API)        │
-│  ├── Token lists & metadata                                    │
-│  ├── Pool discovery & caching                                  │
-│  └── Price feeds (moving to API)                               │
-└────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Simplifying API Wallet Endpoints
-
-### Current: Redundant API Endpoints
-
-The API currently has multiple wallet endpoints that duplicate Gateway functionality:
-
-```
-# Current API endpoints (to be removed)
-POST   /accounts/gateway/add-wallet
-DELETE /accounts/gateway/{chain}/{address}
-POST   /gateway/wallets/create
-GET    /gateway/wallets/show-private-key
-POST   /gateway/wallets/send
-```
-
-### Proposed: Expose Gateway Endpoints in API
-
-Expose Gateway's `/wallet/*` endpoints in API's Swagger UI using identical schemas:
-
-```
-# API exposes Gateway endpoints (same request/response schemas)
-GET    /api/gateway/wallet        → Gateway GET  /wallet
-POST   /api/gateway/wallet/add    → Gateway POST /wallet/add
-DELETE /api/gateway/wallet/remove → Gateway DELETE /wallet/remove
-```
-
-> **Note**: "Proxy" means exposing these in API's Swagger UI and API reference. The request/response schemas are identical to Gateway—no transformation needed.
-
-### Benefits
-
-1. **No schema transformation**: Use Gateway's request/response formats as-is
-2. **Single source of truth**: Gateway manages all wallet operations
-3. **Reduced complexity**: Remove redundant API endpoints
-4. **Consistent behavior**: Dashboard and Hummingbot Client use same Gateway endpoints
-5. **Clear separation**: CoinGecko handles symbol→address resolution; Gateway handles address→blockchain operations
-
----
-
-## Migration Plan
-
-### Phase 1: API Proxy Layer (Short-term)
-
-Add Gateway proxy endpoints to Hummingbot API:
+**Implementation Pattern**:
 
 ```python
 # backend-api/routers/gateway.py
-@router.get("/gateway/wallets")
-async def list_wallets():
-    """Proxy to Gateway /wallet with data transformation"""
-    response = await gateway_client.get("/wallet")
-    config = await gateway_client.get("/config")
-    return transform_to_address_first(response, config)
+from fastapi import APIRouter, Request
+import httpx
 
-@router.post("/gateway/wallets")
-async def add_wallet(request: AddWalletRequest):
-    """Proxy to Gateway /wallet/add"""
-    return await gateway_client.post("/wallet/add", request)
+router = APIRouter(prefix="/gateway")
+GATEWAY_URL = "http://localhost:15888"
+
+@router.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+async def forward_to_gateway(path: str, request: Request):
+    """
+    Forward request to Gateway with identical schema.
+    No transformation - Gateway's request/response format is the source of truth.
+    """
+    async with httpx.AsyncClient() as client:
+        response = await client.request(
+            method=request.method,
+            url=f"{GATEWAY_URL}/{path}",
+            content=await request.body(),
+            headers={k: v for k, v in request.headers.items() if k.lower() != "host"},
+        )
+        return Response(
+            content=response.content,
+            status_code=response.status_code,
+            headers=dict(response.headers),
+        )
 ```
 
-### Phase 2: Dashboard Migration (Short-term)
+**Do NOT**:
+- Transform request/response schemas
+- Create different field names or structures
+- Call connector-specific endpoints (e.g., `/connectors/orca/clmm/fetch-pools`)
 
-Update dashboard to use single API:
+**Do**:
+- Copy Gateway's OpenAPI schemas into API's Swagger UI
+- Forward requests unchanged
+- Return responses unchanged
 
+---
+
+### 2. API: Remove Redundant Wallet Endpoints
+
+**Action**: Delete these endpoints from API (they duplicate Gateway functionality):
+
+```
+DELETE: POST   /accounts/gateway/add-wallet
+DELETE: DELETE /accounts/gateway/{chain}/{address}
+DELETE: POST   /gateway/wallets/create
+DELETE: GET    /gateway/wallets/show-private-key
+DELETE: POST   /gateway/wallets/send
+```
+
+**Replace with**: Forward to Gateway `/wallet/*` endpoints (see above).
+
+---
+
+### 3. API: Implement Market Data Endpoints (CoinGecko)
+
+**Action**: Create new endpoints that fetch from CoinGecko. These are NOT forwarded to Gateway.
+
+| API Endpoint | Data Source | Purpose |
+|--------------|-------------|---------|
+| `GET /api/market-data/prices` | Rate Oracle / CoinGecko | Token prices |
+| `GET /api/market-data/tokens` | CoinGecko | Token registry, metadata, logos |
+| `GET /api/market-data/tokens/{symbol}` | CoinGecko | Symbol → address resolution |
+| `GET /api/market-data/pools` | CoinGecko | Pool discovery, statistics |
+| `GET /api/market-data/pools/{pair}` | CoinGecko | Pair → pool address resolution |
+
+**Why CoinGecko instead of Gateway?**
+- Users search by symbol ("SOL") or pair ("SOL/USDC")
+- Gateway requires blockchain addresses
+- CoinGecko provides symbol→address and pair→pool resolution
+- CoinGecko provides unified metadata across all chains/DEXes
+
+**Implementation**: See [PR #106](https://github.com/hummingbot/hummingbot-api/pull/106) for Rate Oracle integration.
+
+---
+
+### 4. Dashboard: Use Single API Client
+
+**Action**: Remove direct Gateway calls. All requests go through API.
+
+**Before** (two clients):
 ```typescript
-// Before: Two clients
 import { gatewayClient } from '@/api/gateway';
-import { accounts } from '@/api/hummingbot-api';
+import { api } from '@/api/hummingbot-api';
 
+// Direct Gateway call
 const wallets = await gatewayClient.wallet.list();
-const creds = await accounts.getCredentials(account);
+// API call
+const accounts = await api.accounts.list();
+```
 
-// After: Single client
+**After** (single client):
+```typescript
 import { api } from '@/api';
 
-const wallets = await api.gateway.wallets.list();
-const creds = await api.accounts.getCredentials(account);
+// All through API
+const wallets = await api.gateway.wallet.list();  // API forwards to Gateway
+const accounts = await api.accounts.list();        // API handles directly
+const tokens = await api.marketData.tokens.search("SOL");  // API calls CoinGecko
 ```
 
-### Phase 3: Market Data Service (Medium-term)
-
-Add CoinGecko as unified market data provider, with prices via Rate Oracle:
-
-```python
-# backend-api/services/market_data.py
-class MarketDataService:
-    """CoinGecko integration for prices, tokens, and pools"""
-
-    async def get_prices(self, token_ids: list[str]) -> dict:
-        """Fetch token prices via Rate Oracle (CoinGecko)"""
-        # See PR #106: https://github.com/hummingbot/hummingbot-api/pull/106
-        return await rate_oracle.get_prices(token_ids)
-
-    async def get_tokens(self, chain: str = None) -> list[Token]:
-        """Fetch token registry with metadata & logos"""
-        return await coingecko.get_tokens(chain)
-
-    async def get_pools(self, chain: str, dex: str = None) -> list[Pool]:
-        """Fetch pool statistics"""
-        return await coingecko.get_pools(chain, dex)
+**Files to delete from Dashboard**:
 ```
-
-### Phase 4: Complete Migration (Long-term)
-
-Finalize the architecture:
-
-- **Gateway proxy**: All blockchain operations go through `/api/gateway/*` with matching schemas
-- **Market data**: All display data (prices, tokens, pools) comes from `/api/market-data/*` via CoinGecko
-- **Config**: User-facing config in API database; Gateway config is infrastructure-only
-- **Dashboard**: Single API client, no direct Gateway calls
-
-> **Note**: Gateway endpoints remain for Hummingbot Client—we don't remove them. Dashboard/API just uses the appropriate source for each data type.
-
----
-
-## API Endpoint Mapping
-
-### Wallet Operations
-
-| Dashboard Action | Current | Proposed |
-|------------------|---------|----------|
-| List wallets | `GET gateway/wallet` | `GET /api/gateway/wallets` |
-| Add wallet | `POST gateway/wallet/add` | `POST /api/gateway/wallets` |
-| Remove wallet | `DELETE gateway/wallet/remove` | `DELETE /api/gateway/wallets/{address}` |
-| Set default | `POST gateway/config/update` | `PATCH /api/gateway/wallets/{address}` |
-| Get balances | `POST gateway/chain/balances` | `GET /api/gateway/wallets/{address}/balances` |
-
-### Swap Operations
-
-| Dashboard Action | Current | Proposed |
-|------------------|---------|----------|
-| Get quote | `POST gateway/swap/quote` | `POST /api/gateway/swap/quote` |
-| Execute swap | `POST api/gateway-swap/execute` | `POST /api/gateway/swap/execute` |
-| Swap history | `GET api/gateway-swap/search` | `GET /api/gateway/swap/history` |
-
-### CLMM Operations
-
-| Dashboard Action | Current | Proposed |
-|------------------|---------|----------|
-| List positions | `POST gateway/clmm/positions` | `GET /api/gateway/clmm/positions` |
-| Open position | `POST api/gateway-clmm/open` | `POST /api/gateway/clmm/positions` |
-| Close position | `POST api/gateway-clmm/close` | `DELETE /api/gateway/clmm/positions/{id}` |
-
----
-
-## Configuration Consolidation
-
-### Current State (Split)
-
-```yaml
-# Gateway config (gateway/conf/server.yml)
-solana:
-  defaultNetwork: mainnet-beta
-  defaultWallet: "82Sgg..."
-  rpcProvider: helius
-
-# API database (PostgreSQL)
-accounts:
-  - name: "main"
-    credentials: {...}
-```
-
-### Proposed State (API as Source of Truth)
-
-```yaml
-# API manages all user-facing config
-# Gateway config is infrastructure-only
-
-# API Database
-wallets:
-  - address: "82Sgg..."
-    chain: solana
-    isDefault: true
-    label: "Main Trading"
-
-gateway_config:
-  - chain: solana
-    rpcEndpoint: "https://..."
-    rpcProvider: helius
+src/api/gateway/           # Entire directory
+vite.config.ts             # Remove /gateway proxy
 ```
 
 ---
 
-## Error Handling Standardization
+## Request Flow Examples
 
-### Current: Inconsistent Errors
+### Example 1: User Adds a Wallet
 
-```typescript
-// Gateway errors
-{ "statusCode": 400, "error": "Validation Error", "message": "..." }
-
-// API errors
-{ "detail": "Not found" }
+```
+1. User enters private key in Dashboard
+2. Dashboard calls: POST /api/gateway/wallet/add { chain: "solana", privateKey: "..." }
+3. API forwards unchanged to: POST localhost:15888/wallet/add { chain: "solana", privateKey: "..." }
+4. Gateway stores key, returns: { address: "82Sgg..." }
+5. API returns unchanged: { address: "82Sgg..." }
+6. Dashboard displays wallet
 ```
 
-### Proposed: Unified Error Format
+### Example 2: User Searches for Token
 
-```typescript
-interface APIError {
-  code: string;           // Machine-readable: "WALLET_NOT_FOUND"
-  message: string;        // Human-readable: "Wallet not found"
-  details?: unknown;      // Additional context
-  source?: "api" | "gateway" | "blockchain";
-}
+```
+1. User types "SOL" in search box
+2. Dashboard calls: GET /api/market-data/tokens?search=SOL
+3. API calls CoinGecko, returns: [{ symbol: "SOL", address: "So111...", logo: "...", price: 150.00 }]
+4. Dashboard displays token with logo and price
+```
+
+### Example 3: User Executes Swap
+
+```
+1. User selects SOL → USDC swap
+2. Dashboard has addresses from earlier token search
+3. Dashboard calls: POST /api/gateway/trading/swap { ... addresses ... }
+4. API forwards unchanged to: POST localhost:15888/trading/swap { ... }
+5. Gateway builds transaction, signs with wallet, submits to blockchain
+6. Gateway returns: { txHash: "...", status: "confirmed" }
+7. API returns unchanged: { txHash: "...", status: "confirmed" }
+8. Dashboard displays success
 ```
 
 ---
 
-## Dashboard Code Changes
+## Endpoint Reference
 
-### Remove Gateway Client
+### Gateway Endpoints (Forwarded by API)
 
-```diff
-- src/api/gateway/
--   core/
--   namespaces/
--   types/
--   index.ts
-```
+These endpoints are **exposed in API's Swagger UI** and **forwarded to Gateway unchanged**:
 
-### Unified API Client
+| Category | API Route | Gateway Route | Method |
+|----------|-----------|---------------|--------|
+| Config | `/api/gateway/config` | `/config` | GET, POST |
+| Wallet | `/api/gateway/wallet` | `/wallet` | GET |
+| Wallet | `/api/gateway/wallet/add` | `/wallet/add` | POST |
+| Wallet | `/api/gateway/wallet/remove` | `/wallet/remove` | DELETE |
+| Chain | `/api/gateway/chain/solana/*` | `/chain/solana/*` | * |
+| Chain | `/api/gateway/chain/ethereum/*` | `/chain/ethereum/*` | * |
+| Swap | `/api/gateway/trading/swap/*` | `/trading/swap/*` | * |
+| CLMM | `/api/gateway/trading/clmm/*` | `/trading/clmm/*` | * |
+| AMM | `/api/gateway/trading/amm/*` | `/trading/amm/*` | * |
 
-```typescript
-// src/api/index.ts
-export const api = {
-  // Existing (CEX & Bot Management)
-  accounts: AccountsAPI,
-  bots: BotsAPI,
-  trading: TradingAPI,
-  portfolio: PortfolioAPI,
+**Schema source**: Gateway OpenAPI spec at `localhost:15888/docs`
 
-  // Gateway proxy (identical schemas - no rewriting)
-  gateway: {
-    config: ConfigAPI,      // /api/gateway/config → Gateway /config
-    wallet: WalletAPI,      // /api/gateway/wallet/* → Gateway /wallet/*
-    chain: ChainAPI,        // /api/gateway/chain/* → Gateway /chain/solana, /chain/ethereum
-    swap: SwapAPI,          // /api/gateway/trading/swap → Gateway /trading/swap
-    clmm: CLMMAPI,          // /api/gateway/trading/clmm → Gateway /trading/clmm
-    amm: AMMAPI,            // /api/gateway/trading/amm → Gateway /trading/amm
-  },
+### Native API Endpoints (Not Gateway)
 
-  // Market data (CoinGecko - unified data provider)
-  marketData: {
-    prices: PricesAPI,      // /api/market-data/prices
-    tokens: TokensAPI,      // /api/market-data/tokens
-    pools: PoolsAPI,        // /api/market-data/pools
-  },
-};
-```
+These endpoints are **implemented directly in API**:
 
-> **Schema Alignment**: Gateway proxy endpoints should use the **exact same request/response schemas** as Gateway. This allows Dashboard to seamlessly switch between direct Gateway calls (dev) and API proxy (production) without code changes.
-
----
-
-## Security Considerations
-
-### Current Issues
-
-1. **Exposed Gateway Port**: Gateway accessible on port 15888, requires separate firewall rules
-2. **No Auth on Gateway**: Gateway relies on IP whitelist, dashboard bypasses via proxy
-3. **Key Storage**: Private keys in Gateway, API has no visibility
-
-### Proposed Improvements
-
-1. **Internal Gateway**: Gateway only accessible from API server (localhost/docker network)
-2. **API Auth for All**: All dashboard requests authenticated via API
-3. **Audit Trail**: API logs all Gateway operations with user context
+| Category | Route | Data Source |
+|----------|-------|-------------|
+| Accounts | `/api/accounts/*` | PostgreSQL |
+| Bots | `/api/bots/*` | Docker + PostgreSQL |
+| CEX Trading | `/api/trading/*` | CEX APIs |
+| Market Data | `/api/market-data/prices` | CoinGecko / Rate Oracle |
+| Market Data | `/api/market-data/tokens` | CoinGecko |
+| Market Data | `/api/market-data/pools` | CoinGecko |
 
 ---
 
 ## Implementation Checklist
 
-### Backend API Changes
+### API Team
 
-**Gateway Proxy (identical schemas - no rewriting):**
-- [ ] Add `/api/gateway/config` proxy → Gateway `/config`
-- [ ] Add `/api/gateway/wallet/*` proxy → Gateway `/wallet/*`
-- [ ] Add `/api/gateway/chain/*` proxy → Gateway `/chain/solana`, `/chain/ethereum`
-- [ ] Add `/api/gateway/trading/swap` proxy → Gateway `/trading/swap`
-- [ ] Add `/api/gateway/trading/clmm` proxy → Gateway `/trading/clmm`
-- [ ] Add `/api/gateway/trading/amm` proxy → Gateway `/trading/amm`
-- [ ] Pass through requests/responses unchanged (no schema rewriting)
-- [ ] Do NOT proxy connector-specific endpoints (e.g., `/connectors/orca/*`)
+**Gateway Forwarding:**
+- [ ] Create `/api/gateway/*` catch-all route that forwards to Gateway
+- [ ] Copy Gateway OpenAPI schemas into API's Swagger UI
+- [ ] Test that requests/responses pass through unchanged
+- [ ] Remove old wallet endpoints (`/accounts/gateway/*`, `/gateway/wallets/*`)
 
-**Market Data (CoinGecko - unified data provider):**
-- [ ] Add `/api/market-data/prices` - token prices via Rate Oracle ([PR #106](https://github.com/hummingbot/hummingbot-api/pull/106))
-- [ ] Add `/api/market-data/tokens` - token registry & metadata
-- [ ] Add `/api/market-data/pools` - pool discovery & stats
+**Market Data:**
+- [ ] Implement `/api/market-data/prices` via Rate Oracle ([PR #106](https://github.com/hummingbot/hummingbot-api/pull/106))
+- [ ] Implement `/api/market-data/tokens` via CoinGecko
+- [ ] Implement `/api/market-data/pools` via CoinGecko
+- [ ] Add symbol→address resolution endpoint
+- [ ] Add pair→pool resolution endpoint
 
-**Infrastructure:**
-- [ ] Add Gateway health check endpoint
-- [ ] Implement unified error handling
+### Dashboard Team
 
-### Dashboard Changes
+- [ ] Delete `src/api/gateway/` directory
+- [ ] Remove `/gateway` proxy from `vite.config.ts`
+- [ ] Update all Gateway calls to use `/api/gateway/*`
+- [ ] Update token/pool display to use `/api/market-data/*`
+- [ ] Test end-to-end flows
 
-**Gateway Operations (via API proxy):**
-- [ ] Remove `src/api/gateway/` direct client
-- [ ] Update wallet/chain/swap/clmm/amm calls to use `/api/gateway/*`
-- [ ] Remove Gateway proxy from `vite.config.ts`
+### Gateway Team
 
-**Market Data (via CoinGecko):**
-- [ ] Update token display to use `/api/market-data/tokens`
-- [ ] Update pool display to use `/api/market-data/pools`
-- [ ] Update price display to use `/api/market-data/prices`
-
-**Cleanup:**
-- [ ] Update error handling for unified format
-- [ ] Update CLAUDE.md documentation
-
-### Gateway Changes
-
-Gateway endpoints remain for Hummingbot Client; these are documentation/clarification changes:
-
-- [ ] Document which endpoints are for Hummingbot Client vs API consumption
-- [ ] Mark token/pool/price endpoints as "Hummingbot Client only" in docs
-- [ ] Ensure API-consumed endpoints have stable, address-first schemas
-- [ ] Document internal-only access pattern (not exposed to internet)
-
----
-
-## Success Metrics
-
-| Metric | Current | Target |
-|--------|---------|--------|
-| API clients in dashboard | 2 | 1 |
-| Proxy configurations | 2 | 1 |
-| Auth mechanisms | 2 | 1 |
-| Exposed ports | 2 | 1 |
-| Error format types | 2+ | 1 |
-
----
-
-## Appendix: Current File Structure
-
-```
-src/api/
-├── gateway/                    # TO BE REMOVED
-│   ├── core/
-│   │   ├── config.ts
-│   │   ├── errors.ts
-│   │   └── fetch.ts
-│   ├── namespaces/
-│   │   ├── amm.ts
-│   │   ├── chains.ts
-│   │   ├── clmm.ts
-│   │   ├── config.ts
-│   │   ├── pools.ts
-│   │   ├── router.ts
-│   │   ├── trading.ts
-│   │   └── wallet.ts
-│   ├── types/
-│   │   └── index.ts
-│   └── index.ts
-├── hummingbot-api.ts           # TO BE EXPANDED
-└── index.ts
-```
+No code changes required. Documentation updates only:
+- [ ] Document which endpoints API will forward
+- [ ] Ensure schemas are stable for API consumption
 
 ---
 
 ## References
 
-- [Hummingbot Gateway Repository](https://github.com/hummingbot/gateway)
-- [Hummingbot Backend API Repository](https://github.com/hummingbot/backend-api)
-- [Current Dashboard CLAUDE.md](./CLAUDE.md)
+- [Gateway OpenAPI Docs](http://localhost:15888/docs)
+- [Hummingbot API Repository](https://github.com/hummingbot/backend-api)
+- [Rate Oracle PR #106](https://github.com/hummingbot/hummingbot-api/pull/106)
+- [CoinGecko API](https://www.coingecko.com/en/api)

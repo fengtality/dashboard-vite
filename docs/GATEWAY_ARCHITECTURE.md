@@ -100,16 +100,17 @@ These capabilities exist in Gateway for Hummingbot Client, but Dashboard/API sho
 
 ### Summary: What to Use from Gateway vs CoinGecko
 
-| Need | Source | Endpoint |
-|------|--------|----------|
-| Wallet operations | Gateway (proxy) | `/api/gateway/wallet/*` |
-| Chain balances | Gateway (proxy) | `/api/gateway/chain/*` |
-| DEX swaps | Gateway (proxy) | `/api/gateway/swap/*` |
-| CLMM positions | Gateway (proxy) | `/api/gateway/clmm/*` |
-| AMM operations | Gateway (proxy) | `/api/gateway/amm/*` |
-| Token prices | Rate Oracle (CoinGecko) | `/api/market-data/prices` |
-| Token metadata | CoinGecko | `/api/market-data/tokens` |
-| Pool statistics | CoinGecko | `/api/market-data/pools` |
+| Need | Source | API Endpoint | Gateway Endpoint |
+|------|--------|--------------|------------------|
+| Gateway config | Gateway (proxy) | `/api/gateway/config` | `/config` |
+| Wallet operations | Gateway (proxy) | `/api/gateway/wallet/*` | `/wallet/*` |
+| Chain status/balances | Gateway (proxy) | `/api/gateway/chain/*` | `/chain/solana`, `/chain/ethereum` |
+| DEX swaps | Gateway (proxy) | `/api/gateway/trading/swap` | `/trading/swap` |
+| CLMM positions | Gateway (proxy) | `/api/gateway/trading/clmm` | `/trading/clmm` |
+| AMM operations | Gateway (proxy) | `/api/gateway/amm/*` | `/amm/*` |
+| Token prices | CoinGecko | `/api/market-data/prices` | — |
+| Token metadata | CoinGecko | `/api/market-data/tokens` | — |
+| Pool statistics | CoinGecko | `/api/market-data/pools` | — |
 
 ---
 
@@ -131,18 +132,22 @@ These capabilities exist in Gateway for Hummingbot Client, but Dashboard/API sho
 │  ├── /market-data/*     - CoinGecko: prices, tokens, pools     │
 │  └── /docker/*          - Container management                 │
 ├────────────────────────────────────────────────────────────────┤
-│  Proxied to Gateway (Same Schema as Gateway)                   │
-│  ├── /gateway/wallets/* - Wallet CRUD & signing                │
-│  ├── /gateway/chain/*   - Chain status & balances              │
-│  ├── /gateway/swap/*    - DEX swap quotes & execution          │
-│  ├── /gateway/clmm/*    - CLMM position management             │
-│  └── /gateway/amm/*     - AMM operations                       │
+│  Proxied to Gateway (Same Schema - No Rewriting)               │
+│  ├── /gateway/config    → Gateway /config                      │
+│  ├── /gateway/wallet/*  → Gateway /wallet/*                    │
+│  ├── /gateway/chain/*   → Gateway /chain/solana, /chain/ethereum│
+│  ├── /gateway/trading/* → Gateway /trading/swap, /trading/clmm │
+│  └── /gateway/amm/*     → Gateway /amm/*                       │
 └────────────────────────────────────────────────────────────────┘
 ```
 
 > **Market Data**: Prices, tokens, and pools are provided by CoinGecko as a unified data service—not from Gateway. Gateway's token/pool endpoints exist for Hummingbot Client trading but are not suitable for Dashboard display.
 
-> **Gateway Proxy**: API proxies Gateway endpoints with **matching request/response schemas**. See Gateway docs at `localhost:15888/docs` for the canonical schemas. API routes like `/gateway/clmm/*`, `/gateway/swap/*` should match Gateway's `/clmm/*`, `/swap/*` schemas exactly.
+> **Gateway Proxy Rules**:
+> - API proxies Gateway endpoints with **identical request/response schemas**
+> - API should NOT call connector-specific endpoints (e.g., `/connectors/orca/clmm/fetch-pools`)
+> - API should NOT rewrite route schemas—pass through to Gateway as-is
+> - See Gateway docs at `localhost:15888/docs` for canonical schemas
 
 ### Gateway (Blockchain Middleware)
 
@@ -424,13 +429,13 @@ export const api = {
   trading: TradingAPI,
   portfolio: PortfolioAPI,
 
-  // Gateway proxy (same schemas as Gateway - see localhost:15888/docs)
+  // Gateway proxy (identical schemas - no rewriting)
   gateway: {
-    wallets: WalletsAPI,    // /api/gateway/wallets → Gateway /wallet
-    chain: ChainAPI,        // /api/gateway/chain → Gateway /chain
-    swap: SwapAPI,          // /api/gateway/swap → Gateway /swap
-    clmm: CLMMAPI,          // /api/gateway/clmm → Gateway /clmm
-    amm: AMMAPI,            // /api/gateway/amm → Gateway /amm
+    config: ConfigAPI,      // /api/gateway/config → Gateway /config
+    wallet: WalletAPI,      // /api/gateway/wallet/* → Gateway /wallet/*
+    chain: ChainAPI,        // /api/gateway/chain/* → Gateway /chain/solana, /chain/ethereum
+    trading: TradingAPI,    // /api/gateway/trading/* → Gateway /trading/swap, /trading/clmm
+    amm: AMMAPI,            // /api/gateway/amm/* → Gateway /amm/*
   },
 
   // Market data (CoinGecko - unified data provider)
@@ -466,13 +471,14 @@ export const api = {
 
 ### Backend API Changes
 
-**Gateway Proxy (same schemas as Gateway `localhost:15888/docs`):**
+**Gateway Proxy (identical schemas - no rewriting):**
+- [ ] Add `/api/gateway/config` proxy → Gateway `/config`
 - [ ] Add `/api/gateway/wallet/*` proxy → Gateway `/wallet/*`
-- [ ] Add `/api/gateway/chain/*` proxy → Gateway `/chain/*`
-- [ ] Add `/api/gateway/swap/*` proxy → Gateway `/swap/*`
-- [ ] Add `/api/gateway/clmm/*` proxy → Gateway `/clmm/*`
+- [ ] Add `/api/gateway/chain/*` proxy → Gateway `/chain/solana`, `/chain/ethereum`
+- [ ] Add `/api/gateway/trading/*` proxy → Gateway `/trading/swap`, `/trading/clmm`
 - [ ] Add `/api/gateway/amm/*` proxy → Gateway `/amm/*`
-- [ ] Ensure request/response schemas match Gateway exactly
+- [ ] Pass through requests/responses unchanged (no schema rewriting)
+- [ ] Do NOT proxy connector-specific endpoints (e.g., `/connectors/orca/*`)
 
 **Market Data (CoinGecko - unified data provider):**
 - [ ] Add `/api/market-data/prices` - token prices via Rate Oracle ([PR #106](https://github.com/hummingbot/hummingbot-api/pull/106))

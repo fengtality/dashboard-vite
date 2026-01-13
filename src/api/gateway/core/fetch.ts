@@ -2,10 +2,12 @@
  * Gateway API fetch utilities
  *
  * Core HTTP utilities for making requests to the Gateway server.
+ * Requests are routed through /api/gateway-proxy/* which requires Basic Auth.
  */
 
 import { getGatewayConfig } from './config';
 import { GatewayError } from './errors';
+import { getAuthHeader } from '@/config';
 
 /**
  * Make a fetch request to the Gateway API
@@ -19,9 +21,10 @@ export async function gatewayFetch<T>(
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
+    'Authorization': getAuthHeader(),
   };
 
-  // Add API key if configured
+  // Add API key if configured (for direct Gateway access)
   if (config.apiKey) {
     headers['X-API-Key'] = config.apiKey;
   }

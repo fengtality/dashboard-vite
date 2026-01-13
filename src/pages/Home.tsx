@@ -6,7 +6,8 @@ import type { BotStatus } from '@/api/hummingbot-api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Plug, Bot, Zap, Key, Rocket, Square } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Plug, Bot, Zap, Key, Rocket, Square, AlertCircle } from 'lucide-react';
 import { formatConnectorName, formatBotName } from '@/lib/formatting';
 import { isPerpetualConnector } from '@/lib/connectors';
 
@@ -14,14 +15,19 @@ export default function Home() {
   const { account } = useAccount();
   const [connectedConnectors, setConnectedConnectors] = useState<string[]>([]);
   const [activeBots, setActiveBots] = useState<Record<string, BotStatus>>({});
+  const [apiError, setApiError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchData() {
+      let hasError = false;
+
       if (account) {
         try {
           const creds = await accounts.getCredentials(account);
           setConnectedConnectors(creds);
-        } catch {
+        } catch (err) {
+          hasError = true;
+          setApiError(err instanceof Error ? err.message : 'Failed to connect to API');
           setConnectedConnectors([]);
         }
       }
@@ -29,7 +35,11 @@ export default function Home() {
       try {
         const status = await bots.getStatus();
         setActiveBots(status);
-      } catch {
+        if (!hasError) setApiError(null);
+      } catch (err) {
+        if (!hasError) {
+          setApiError(err instanceof Error ? err.message : 'Failed to connect to API');
+        }
         setActiveBots({});
       }
     }
@@ -45,6 +55,16 @@ export default function Home() {
         <h1 className="text-2xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground">Welcome to Condor Dashboard</p>
       </div>
+
+      {apiError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>API Connection Error</AlertTitle>
+          <AlertDescription>
+            Unable to connect to the Hummingbot API. Make sure the backend server is running on port 8000.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {/* Connected Exchanges */}

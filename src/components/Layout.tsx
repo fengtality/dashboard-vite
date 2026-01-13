@@ -13,6 +13,7 @@ import {
   Droplets,
 } from 'lucide-react';
 import { gatewayClient } from '@/api/gateway';
+import { accounts } from '@/api/hummingbot-api';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/components/theme-provider';
 import { Button } from '@/components/ui/button';
@@ -65,12 +66,22 @@ function MobileNavLink({ to, children, isActive, onClick }: { to: string; childr
 export default function Layout() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [apiRunning, setApiRunning] = useState<boolean | null>(null);
   const [gatewayRunning, setGatewayRunning] = useState<boolean | null>(null);
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
-  // Check Gateway status periodically via direct health check
+  // Check API and Gateway status periodically
   useEffect(() => {
+    async function checkApi() {
+      try {
+        await accounts.list();
+        setApiRunning(true);
+      } catch {
+        setApiRunning(false);
+      }
+    }
+
     async function checkGateway() {
       try {
         const response = await gatewayClient.health();
@@ -80,8 +91,12 @@ export default function Layout() {
       }
     }
 
+    checkApi();
     checkGateway();
-    const interval = setInterval(checkGateway, 30000); // Check every 30 seconds
+    const interval = setInterval(() => {
+      checkApi();
+      checkGateway();
+    }, 30000); // Check every 30 seconds
     return () => clearInterval(interval);
   }, []);
 
@@ -210,13 +225,21 @@ export default function Layout() {
 
       {/* Footer */}
       <footer className="border-t border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6 py-2">
-        <div className="flex items-center text-xs text-muted-foreground">
+        <div className="flex items-center justify-end text-xs text-muted-foreground">
           <div className="flex items-center gap-4">
             {/* API Status */}
             <div className="flex items-center gap-2">
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
+                {apiRunning ? (
+                  <>
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
+                  </>
+                ) : apiRunning === false ? (
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive"></span>
+                ) : (
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-muted-foreground animate-pulse"></span>
+                )}
               </span>
               <span>Hummingbot API</span>
             </div>

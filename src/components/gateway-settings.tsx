@@ -315,15 +315,7 @@ export function GatewaySettings() {
   return (
     <div className="space-y-6">
       {/* Server Info */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-        <div>
-          <span className="text-muted-foreground">Host</span>
-          <p className="font-mono text-xs sm:text-sm">localhost</p>
-        </div>
-        <div>
-          <span className="text-muted-foreground">Port</span>
-          <p className="font-mono">15888</p>
-        </div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
         <div>
           <span className="text-muted-foreground">Status</span>
           <p className="flex items-center gap-2">
@@ -334,6 +326,10 @@ export function GatewaySettings() {
         <div>
           <span className="text-muted-foreground">Version</span>
           <p className="font-mono text-xs sm:text-sm">{version || '—'}</p>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Access</span>
+          <p className="font-mono text-xs sm:text-sm">via API proxy</p>
         </div>
       </div>
 

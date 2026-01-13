@@ -2,11 +2,13 @@
  * Condor Dashboard API
  *
  * Unified facade for all API clients:
- * - gateway: Direct Gateway client (localhost:15888) for read-only DEX operations
+ * - gateway: Gateway client (via /api/gateway-proxy/*) for DEX operations
  * - hummingbot: Hummingbot API client (/api/*) for server management and DB operations
+ *
+ * All Gateway operations are routed through the Hummingbot API proxy.
  */
 
-// Gateway client (direct connection to Gateway server)
+// Gateway client (routed through /api/gateway-proxy/*)
 export { GatewayClient, gatewayClient } from './gateway';
 export { getGatewayConfig, setGatewayConfig, resetGatewayConfig } from './gateway';
 export { GatewayError, GatewayErrorCode } from './gateway';
@@ -182,7 +184,7 @@ import { api as hummingbotApi } from './hummingbot-api';
  * ```typescript
  * import { api } from '@/api';
  *
- * // Direct Gateway operations (read-only)
+ * // Gateway operations (via /api/gateway-proxy/*)
  * const chains = await api.gateway.config.getChains();
  * const balances = await api.gateway.chains.getBalances('solana', { network: 'mainnet-beta', address: '...' });
  * const quote = await api.gateway.trading.quoteSwap({ ... });
@@ -194,7 +196,7 @@ import { api as hummingbotApi } from './hummingbot-api';
  * ```
  */
 export const api = {
-  /** Direct Gateway client for read-only DEX operations */
+  /** Gateway client for DEX operations (routed through API proxy) */
   gateway: gatewayClient,
 
   /** Hummingbot API client for server management and DB operations */

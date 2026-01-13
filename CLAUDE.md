@@ -33,17 +33,18 @@ Environment variables are defined in `.env` (copy from `.env.example`):
 - `VITE_API_URL` - Hummingbot API base URL (default: `/api` for dev proxy)
 - `VITE_API_USERNAME` - Basic auth username
 - `VITE_API_PASSWORD` - Basic auth password
-- `VITE_GATEWAY_URL` - Gateway direct URL (default: `/gateway` for dev proxy)
+- `VITE_GATEWAY_URL` - Gateway URL (default: `/api/gateway-proxy` - routed through API)
 - `VITE_GATEWAY_API_KEY` - Optional Gateway API key
 
 Configuration is centralized in `src/config.ts`.
 
 ### API Client Architecture
-The dashboard uses a **dual-client architecture** for API calls:
+The dashboard uses a **dual-client architecture** for API calls, but all requests go through the Hummingbot API:
 
-1. **Gateway Client** (`src/api/gateway/`) - Direct connection to Gateway server at `localhost:15888`
-   - Used for read-only DEX operations (config, chains, pools, quotes)
-   - Designed to be extractable to a standalone `@hummingbot/gateway-client` package
+1. **Gateway Client** (`src/api/gateway/`) - Gateway operations routed through Hummingbot API at `/api/gateway-proxy/*`
+   - Used for DEX operations (config, chains, pools, quotes, wallets)
+   - Hummingbot API forwards requests to Gateway unchanged
+   - Dashboard never connects directly to Gateway
 
 2. **Hummingbot API Client** (`src/api/hummingbot-api.ts`) - Connection to Backend API at `/api`
    - Used for write operations that persist to PostgreSQL (swaps, LP positions)
@@ -411,7 +412,8 @@ npm run lint     # Run ESLint
 
 The dev server proxies:
 - `/api/*` → `http://localhost:8000` (Hummingbot Backend API)
-- `/gateway/*` → `http://localhost:15888` (Gateway server)
+
+Gateway is accessed through `/api/gateway-proxy/*` which the Hummingbot API forwards to Gateway at `localhost:15888`.
 
 ## Important Notes
 

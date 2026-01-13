@@ -1,10 +1,10 @@
 /**
  * Gateway Client
  *
- * Direct client for Gateway server at localhost:15888.
+ * Client for Gateway server operations, routed through Hummingbot API proxy.
  * Handles DEX operations and wallet management.
  *
- * This client is designed to be extractable to a standalone @hummingbot/gateway-client package.
+ * All requests go to /api/gateway-proxy/* which the API forwards to Gateway.
  */
 
 import { ConfigAPI } from './namespaces/config';

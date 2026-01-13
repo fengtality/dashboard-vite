@@ -13,6 +13,7 @@ import BotsPage from './pages/BotsPage';
 import BotDetail from './pages/BotDetail';
 import DeployBot from './pages/DeployBot';
 import AccountPage from './pages/AccountPage';
+import ExperimentPage from './pages/ExperimentPage';
 import './index.css';
 
 function App() {
@@ -39,6 +40,8 @@ function App() {
             <Route path="bots/deploy" element={<DeployBot />} />
             {/* Settings */}
             <Route path="settings" element={<AccountPage />} />
+            {/* Experiment */}
+            <Route path="experiment" element={<ExperimentPage />} />
           </Route>
         </Routes>
         </GatewayStatusProvider>

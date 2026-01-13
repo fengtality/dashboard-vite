@@ -10,6 +10,7 @@ import {
   Settings,
   Menu,
   Droplets,
+  FlaskConical,
 } from 'lucide-react';
 import logo from '@/assets/condor-logo-light.png';
 import { accounts } from '@/api/hummingbot-api';
@@ -124,6 +125,11 @@ export default function Layout() {
               <Zap size={16} className="mr-2" />
               Strategies
             </NavLink>
+
+            <NavLink to="/experiment" isActive={location.pathname === '/experiment'}>
+              <FlaskConical size={16} className="mr-2" />
+              Experiment
+            </NavLink>
           </nav>
 
           {/* Right side - Keys, Account & Theme */}
@@ -178,6 +184,11 @@ export default function Layout() {
                   <MobileNavLink to="/strategies" isActive={location.pathname.startsWith('/strategies')} onClick={closeMobileMenu}>
                     <Zap size={20} />
                     Strategies
+                  </MobileNavLink>
+
+                  <MobileNavLink to="/experiment" isActive={location.pathname === '/experiment'} onClick={closeMobileMenu}>
+                    <FlaskConical size={20} />
+                    Experiment
                   </MobileNavLink>
 
                   <div className="border-t border-border my-2" />

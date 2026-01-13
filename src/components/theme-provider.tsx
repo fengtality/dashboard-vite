@@ -5,7 +5,7 @@ type Font = 'inter' | 'hummingbot' | 'system';
 
 export const FONT_OPTIONS: { value: Font; label: string; family: string }[] = [
   { value: 'inter', label: 'Inter', family: "'Inter', ui-sans-serif, system-ui, sans-serif" },
-  { value: 'hummingbot', label: 'Hummingbot', family: "'JetBrains Mono', ui-monospace, monospace" },
+  { value: 'hummingbot', label: 'JetBrains Mono (Hummingbot)', family: "'JetBrains Mono', ui-monospace, monospace" },
   { value: 'system', label: 'System', family: 'ui-sans-serif, system-ui, sans-serif' },
 ];
 

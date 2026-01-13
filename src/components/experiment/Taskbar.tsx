@@ -12,14 +12,12 @@ import {
   Wallet,
   ClipboardList,
   History,
-  TrendingUp,
   ArrowRightLeft,
   ArrowDownUp,
   Bot,
   Key,
   LayoutGrid,
   Trash2,
-  AreaChart,
   Save,
   Menu,
   RotateCcw,
@@ -45,8 +43,7 @@ const ALL_WINDOWS: WindowOption[] = [
 
   // Market Data - available for CEX connectors
   { type: 'price-chart', label: 'Price Chart', description: 'View candlestick charts and price history', icon: BarChart3, connectorTypes: ['spot', 'perp'] },
-  { type: 'order-book', label: 'Order Book', description: 'Real-time bid/ask order book', icon: BookOpen, connectorTypes: ['spot', 'perp'] },
-  { type: 'order-depth', label: 'Order Depth', description: 'Visualize market depth', icon: AreaChart, connectorTypes: ['spot', 'perp'] },
+  { type: 'order-book', label: 'Order Book', description: 'Order book and depth chart', icon: BookOpen, connectorTypes: ['spot', 'perp'] },
 
   // Trading - Spot CEX
   { type: 'trade-spot', label: 'Trade Spot', description: 'Place spot buy and sell orders', icon: ArrowRightLeft, connectorTypes: ['spot'] },
@@ -61,14 +58,10 @@ const ALL_WINDOWS: WindowOption[] = [
   // Bot
   { type: 'run-bot', label: 'Run Bot', description: 'Deploy and manage trading bots', icon: Bot, connectorTypes: ['spot', 'perp'] },
 
-  // Portfolio - CEX
-  { type: 'balances', label: 'Balances', description: 'View account token balances', icon: Wallet, connectorTypes: ['all'] },
+  // Portfolio - all connectors
+  { type: 'portfolio', label: 'Portfolio', description: 'Balances and positions', icon: Wallet, connectorTypes: ['all'] },
   { type: 'orders', label: 'Orders', description: 'Active and historical orders', icon: ClipboardList, connectorTypes: ['spot', 'perp'] },
   { type: 'trades', label: 'Trade History', description: 'View past trade executions', icon: History, connectorTypes: ['spot', 'perp'] },
-  { type: 'positions', label: 'Positions', description: 'Perpetual positions', icon: TrendingUp, connectorTypes: ['perp'] },
-
-  // Portfolio - Gateway
-  { type: 'lp-positions', label: 'LP Positions', description: 'AMM liquidity positions', icon: TrendingUp, connectorTypes: ['gateway'] },
   { type: 'transactions', label: 'Transactions', description: 'DEX swap history', icon: Receipt, connectorTypes: ['gateway'] },
 ];
 

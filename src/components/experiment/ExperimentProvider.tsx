@@ -4,17 +4,14 @@ import { isPerpetualConnector } from '@/lib/connectors';
 export type WindowType =
   | 'price-chart'
   | 'order-book'
-  | 'order-depth'
   | 'trade-spot'
   | 'trade-perp'
   | 'swap'
   | 'add-liquidity'
   | 'run-bot'
-  | 'balances'
+  | 'portfolio'
   | 'orders'
   | 'trades'
-  | 'positions'
-  | 'lp-positions'
   | 'transactions'
   | 'keys';
 
@@ -88,18 +85,15 @@ const MARKET_STORAGE_KEY = 'condor-experiment-market';
 // Default sizes and titles for window types
 const WINDOW_DEFAULTS: Record<WindowType, { width: number; height: number; title: string; minWidth: number; minHeight: number }> = {
   'price-chart': { width: 600, height: 400, title: 'Price Chart', minWidth: 400, minHeight: 300 },
-  'order-book': { width: 320, height: 450, title: 'Order Book', minWidth: 280, minHeight: 300 },
-  'order-depth': { width: 500, height: 300, title: 'Order Depth', minWidth: 350, minHeight: 200 },
+  'order-book': { width: 400, height: 500, title: 'Order Book', minWidth: 320, minHeight: 400 },
   'trade-spot': { width: 350, height: 420, title: 'Trade Spot', minWidth: 300, minHeight: 380 },
   'trade-perp': { width: 380, height: 520, title: 'Trade Perp', minWidth: 320, minHeight: 450 },
   'swap': { width: 380, height: 450, title: 'Swap', minWidth: 320, minHeight: 380 },
   'add-liquidity': { width: 400, height: 500, title: 'Add Liquidity', minWidth: 350, minHeight: 420 },
   'run-bot': { width: 400, height: 500, title: 'Run Bot', minWidth: 350, minHeight: 400 },
-  'balances': { width: 450, height: 350, title: 'Balances', minWidth: 350, minHeight: 250 },
+  'portfolio': { width: 500, height: 400, title: 'Portfolio', minWidth: 400, minHeight: 300 },
   'orders': { width: 600, height: 350, title: 'Orders', minWidth: 450, minHeight: 250 },
   'trades': { width: 550, height: 350, title: 'Trades', minWidth: 400, minHeight: 250 },
-  'positions': { width: 600, height: 300, title: 'Positions', minWidth: 450, minHeight: 200 },
-  'lp-positions': { width: 700, height: 400, title: 'LP Positions', minWidth: 550, minHeight: 300 },
   'transactions': { width: 650, height: 400, title: 'Transactions', minWidth: 500, minHeight: 300 },
   'keys': { width: 500, height: 400, title: 'API Keys', minWidth: 400, minHeight: 300 },
 };
@@ -115,9 +109,9 @@ const DEFAULT_LAYOUTS: Layout[] = [
     name: 'Spot Trading',
     windows: [
       { type: 'price-chart', x: 10, y: 10, width: 650, height: 400 },
-      { type: 'order-book', x: 670, y: 10, width: 320, height: 400 },
-      { type: 'trade-spot', x: 670, y: 420, width: 320, height: 350 },
-      { type: 'balances', x: 10, y: 420, width: 450, height: 300 },
+      { type: 'order-book', x: 670, y: 10, width: 400, height: 500 },
+      { type: 'trade-spot', x: 10, y: 420, width: 350, height: 420 },
+      { type: 'portfolio', x: 370, y: 420, width: 500, height: 400 },
     ],
   },
   {
@@ -125,9 +119,9 @@ const DEFAULT_LAYOUTS: Layout[] = [
     name: 'Perp Trading',
     windows: [
       { type: 'price-chart', x: 10, y: 10, width: 650, height: 400 },
-      { type: 'order-book', x: 670, y: 10, width: 320, height: 400 },
-      { type: 'trade-perp', x: 670, y: 420, width: 350, height: 450 },
-      { type: 'positions', x: 10, y: 420, width: 450, height: 300 },
+      { type: 'order-book', x: 670, y: 10, width: 400, height: 500 },
+      { type: 'trade-perp', x: 10, y: 420, width: 380, height: 520 },
+      { type: 'portfolio', x: 400, y: 420, width: 500, height: 400 },
     ],
   },
   {
@@ -136,7 +130,7 @@ const DEFAULT_LAYOUTS: Layout[] = [
     windows: [
       { type: 'swap', x: 10, y: 10, width: 380, height: 450 },
       { type: 'add-liquidity', x: 400, y: 10, width: 400, height: 500 },
-      { type: 'lp-positions', x: 10, y: 470, width: 700, height: 350 },
+      { type: 'portfolio', x: 10, y: 470, width: 600, height: 350 },
     ],
   },
 ];

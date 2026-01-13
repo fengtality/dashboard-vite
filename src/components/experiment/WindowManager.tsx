@@ -12,38 +12,25 @@ import {
 } from '@/components/ui/context-menu';
 
 // Window content components
-import { BalancesWindow } from './windows/BalancesWindow';
 import { OrdersWindow } from './windows/OrdersWindow';
 import { TradesWindow } from './windows/TradesWindow';
-import { PositionsWindow } from './windows/PositionsWindow';
 import { PriceChartWindow } from './windows/PriceChartWindow';
 import { OrderBookWindow } from './windows/OrderBookWindow';
-import { OrderDepthWindow } from './windows/OrderDepthWindow';
 import { TradeSpotWindow } from './windows/TradeSpotWindow';
 import { TradePerpWindow } from './windows/TradePerpWindow';
 import { SwapWindow } from './windows/SwapWindow';
 import { AddLiquidityWindow } from './windows/AddLiquidityWindow';
-import { LPPositionsWindow } from './windows/LPPositionsWindow';
+import { PortfolioWindow } from './windows/PortfolioWindow';
 import { TransactionsWindow } from './windows/TransactionsWindow';
 import { KeysWindow } from './windows/KeysWindow';
 import { PlaceholderWindow } from './windows/PlaceholderWindow';
 
 function WindowContent({ window }: { window: WindowState }) {
   switch (window.type) {
-    case 'balances':
-      return <BalancesWindow context={window.context} />;
-    case 'orders':
-      return <OrdersWindow context={window.context} />;
-    case 'trades':
-      return <TradesWindow context={window.context} />;
-    case 'positions':
-      return <PositionsWindow context={window.context} />;
     case 'price-chart':
       return <PriceChartWindow context={window.context} />;
     case 'order-book':
       return <OrderBookWindow context={window.context} />;
-    case 'order-depth':
-      return <OrderDepthWindow context={window.context} />;
     case 'trade-spot':
       return <TradeSpotWindow context={window.context} />;
     case 'trade-perp':
@@ -52,8 +39,12 @@ function WindowContent({ window }: { window: WindowState }) {
       return <SwapWindow context={window.context} />;
     case 'add-liquidity':
       return <AddLiquidityWindow context={window.context} />;
-    case 'lp-positions':
-      return <LPPositionsWindow context={window.context} />;
+    case 'portfolio':
+      return <PortfolioWindow context={window.context} />;
+    case 'orders':
+      return <OrdersWindow context={window.context} />;
+    case 'trades':
+      return <TradesWindow context={window.context} />;
     case 'transactions':
       return <TransactionsWindow context={window.context} />;
     case 'keys':

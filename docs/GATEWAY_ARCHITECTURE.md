@@ -145,9 +145,9 @@ These capabilities exist in Gateway for Hummingbot Client, but Dashboard/API sho
 > **Market Data**: Prices, tokens, and pools are provided by CoinGecko as a unified data service—not from Gateway. Gateway's token/pool endpoints exist for Hummingbot Client trading but are not suitable for Dashboard display.
 
 > **Gateway Proxy Rules**:
-> - API proxies Gateway endpoints with **identical request/response schemas**
+> - "Proxy" means: expose Gateway endpoints in API's Swagger UI and API reference, using **identical request/response schemas**
+> - API does NOT transform data or create different schemas—Gateway schemas are the source of truth
 > - API should NOT call connector-specific endpoints (e.g., `/connectors/orca/clmm/fetch-pools`)
-> - API should NOT rewrite route schemas—pass through to Gateway as-is
 > - See Gateway docs at `localhost:15888/docs` for canonical schemas
 
 ### Gateway (Blockchain Middleware)
@@ -201,20 +201,22 @@ GET    /gateway/wallets/show-private-key
 POST   /gateway/wallets/send
 ```
 
-### Proposed: Direct Gateway Proxy
+### Proposed: Expose Gateway Endpoints in API
 
-Simply proxy Gateway's `/wallet/*` endpoints without transformation:
+Expose Gateway's `/wallet/*` endpoints in API's Swagger UI using identical schemas:
 
 ```
-# API proxies Gateway directly
-GET    /api/gateway/wallet      → Gateway GET  /wallet
-POST   /api/gateway/wallet/add  → Gateway POST /wallet/add
+# API exposes Gateway endpoints (same request/response schemas)
+GET    /api/gateway/wallet        → Gateway GET  /wallet
+POST   /api/gateway/wallet/add    → Gateway POST /wallet/add
 DELETE /api/gateway/wallet/remove → Gateway DELETE /wallet/remove
 ```
 
+> **Note**: "Proxy" means exposing these in API's Swagger UI and API reference. The request/response schemas are identical to Gateway—no transformation needed.
+
 ### Benefits
 
-1. **No schema transformation**: Use Gateway's response format as-is
+1. **No schema transformation**: Use Gateway's request/response formats as-is
 2. **Single source of truth**: Gateway manages all wallet operations
 3. **Reduced complexity**: Remove redundant API endpoints
 4. **Consistent behavior**: Dashboard and Hummingbot Client use same Gateway endpoints

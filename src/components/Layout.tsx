@@ -3,7 +3,6 @@ import { Link, useLocation, Outlet } from 'react-router-dom';
 import {
   Key,
   Plug,
-  Bird,
   Bot,
   Zap,
   Sun,
@@ -12,6 +11,8 @@ import {
   Menu,
   Droplets,
 } from 'lucide-react';
+import logoLight from '@/assets/condor-logo-trans-light.png';
+import logoDark from '@/assets/condor-logo-trans-dark.png';
 import { gatewayClient } from '@/api/gateway';
 import { accounts } from '@/api/hummingbot-api';
 import { cn } from '@/lib/utils';
@@ -65,11 +66,14 @@ function MobileNavLink({ to, children, isActive, onClick }: { to: string; childr
 
 export default function Layout() {
   const location = useLocation();
+  const { theme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [apiRunning, setApiRunning] = useState<boolean | null>(null);
   const [gatewayRunning, setGatewayRunning] = useState<boolean | null>(null);
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
+
+  const logo = theme === 'dark' ? logoDark : logoLight;
 
   // Check API and Gateway status periodically
   useEffect(() => {
@@ -106,8 +110,8 @@ export default function Layout() {
       <header className="border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-14 items-center px-4 md:px-6">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 mr-6">
-            <Bird size={24} className="text-primary" />
+          <Link to="/" className="flex items-center mr-6">
+            <img src={logo} alt="Condor" className="h-8 w-8" />
             <span className="text-lg font-bold">Condor</span>
           </Link>
 

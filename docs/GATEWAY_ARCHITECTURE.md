@@ -136,8 +136,9 @@ These capabilities exist in Gateway for Hummingbot Client, but Dashboard/API sho
 │  ├── /gateway/config    → Gateway /config                      │
 │  ├── /gateway/wallet/*  → Gateway /wallet/*                    │
 │  ├── /gateway/chain/*   → Gateway /chain/solana, /chain/ethereum│
-│  └── /gateway/trading/* → Gateway /trading/swap, /trading/clmm,│
-│                           /trading/amm                         │
+│  ├── /gateway/trading/swap → Gateway /trading/swap             │
+│  ├── /gateway/trading/clmm → Gateway /trading/clmm             │
+│  └── /gateway/trading/amm  → Gateway /trading/amm              │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -434,7 +435,9 @@ export const api = {
     config: ConfigAPI,      // /api/gateway/config → Gateway /config
     wallet: WalletAPI,      // /api/gateway/wallet/* → Gateway /wallet/*
     chain: ChainAPI,        // /api/gateway/chain/* → Gateway /chain/solana, /chain/ethereum
-    trading: TradingAPI,    // /api/gateway/trading/* → Gateway /trading/swap, /trading/clmm, /trading/amm
+    swap: SwapAPI,          // /api/gateway/trading/swap → Gateway /trading/swap
+    clmm: CLMMAPI,          // /api/gateway/trading/clmm → Gateway /trading/clmm
+    amm: AMMAPI,            // /api/gateway/trading/amm → Gateway /trading/amm
   },
 
   // Market data (CoinGecko - unified data provider)
@@ -474,7 +477,9 @@ export const api = {
 - [ ] Add `/api/gateway/config` proxy → Gateway `/config`
 - [ ] Add `/api/gateway/wallet/*` proxy → Gateway `/wallet/*`
 - [ ] Add `/api/gateway/chain/*` proxy → Gateway `/chain/solana`, `/chain/ethereum`
-- [ ] Add `/api/gateway/trading/*` proxy → Gateway `/trading/swap`, `/trading/clmm`, `/trading/amm`
+- [ ] Add `/api/gateway/trading/swap` proxy → Gateway `/trading/swap`
+- [ ] Add `/api/gateway/trading/clmm` proxy → Gateway `/trading/clmm`
+- [ ] Add `/api/gateway/trading/amm` proxy → Gateway `/trading/amm`
 - [ ] Pass through requests/responses unchanged (no schema rewriting)
 - [ ] Do NOT proxy connector-specific endpoints (e.g., `/connectors/orca/*`)
 

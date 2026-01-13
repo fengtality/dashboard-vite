@@ -165,7 +165,7 @@ export default function AccountPage() {
               <p className="text-sm text-muted-foreground mb-4">
                 Choose your preferred font family.
               </p>
-              <Select value={font} onValueChange={(value) => setFont(value as 'inter' | 'system' | 'mono')}>
+              <Select value={font} onValueChange={(value) => setFont(value as 'inter' | 'hummingbot' | 'system')}>
                 <SelectTrigger className="w-full max-w-xs">
                   <SelectValue placeholder="Select font" />
                 </SelectTrigger>
